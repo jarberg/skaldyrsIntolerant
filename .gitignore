@@ -1,2 +1,4 @@
 ﻿.env
 Zantio/src/__pycache__
+Zantio/src/adapters/__pycache__
+Zantio/src/RESTclients/__pycache__

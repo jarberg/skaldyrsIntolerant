@@ -147,20 +147,14 @@ class CloudFactoryClient:
                 customer= Customer(
                     id=str(raw["id"]),
                     name=raw.get("name", "Unknown"),
-                    vatID=''.join(ch for ch in raw.get("vatId") if ch.isdigit()),
-                    countryCode=raw.get("countryCode"),
-                    external_id=raw.get("externalCustomerId")  # adjust field name
+                    vatID=raw.get("vatId", None),
+                    countryCode=raw.get("countryCode", None),
+                    external_id=raw.get("externalCustomerId", None)  # adjust field name
                 )
-
-                if not customer.vatID or len(customer.vatID) < 6 or not customer.countryCode or any(x.moms_nummer == customer.moms_nummer for x in customers):
-                    continue
 
                 customers.append(
                     customer
                 )
-
-            # pagination logic (adapt to actual API)
-
 
         return customers
 
@@ -192,7 +186,6 @@ class CloudFactoryClient:
             print(f"⚠ No detail returned for invoice {invoice_no}")
             return None
         return data
-
 
     @staticmethod
     def _parse_date(value: str) -> date:

@@ -34,20 +34,54 @@ class Customer:
 
     @property
     def moms_nummer(self) -> str:
+        if not self.vatID.isdigit():
+            return self.vatID
         return self.countryCode+self.vatID
+
+
+@dataclass
+class CustomerInvoiceCategoryLine_base:
+    Amount: str
+    Currency: str
+    ItemName: str
+    Quantity: str
+    UnitPrice:str
+
+@dataclass
+class CustomerInvoiceCategoryLine_exclaimer(CustomerInvoiceCategoryLine_base):
+    ItemNo: str
+    LicenseAgreementType: str
+    Offering: str
+    ProductFamily: str
+
+@dataclass
+class CustomerInvoiceCategoryLine_keepit(CustomerInvoiceCategoryLine_base):
+    ItemNo: str
+    LicenseAgreementType: str
+    Offering: str
+    ProductFamily: str
+
 
 @dataclass
 class CustomerInvoiceCategory:
-    description: str
-    total: float
-
+    name: str
+    lines: list
 
 @dataclass
 class CustomerInvoice:
     customer: Customer
     period_start: date
     period_end: date
-    categories: List[CustomerInvoiceCategory]
+    categories: Optional[Dict[str, Any]] = field(default_factory=dict)
+
+
+@dataclass
+class CustomerInvoice_Error:
+    customer: Customer
+    reason: str
+    categories: Optional[Dict[str, Any]] = field(default_factory=dict)
+
+
 
 
 

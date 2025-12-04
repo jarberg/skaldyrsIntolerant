@@ -1,3 +1,5 @@
+import pandas as pd
+
 from dataclasses import is_dataclass, fields
 from typing import Any
 
