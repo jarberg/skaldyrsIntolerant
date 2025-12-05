@@ -1,0 +1,18 @@
+Customer ID,Customer Name,VAT,Country,Reason,Total Amount (DKK)
+c25a457b-1c8a-44bc-8e01-00ac3d20114a,Zantio IT,41470704,DK,No matching debtor in Uniconta (find_deptor returned none),43223.41000000001
+7965ee93-83ef-4208-8bc7-ae12b11fc125,Diakovasilis,,DK,No matching debtor in Uniconta (find_deptor returned none),81.95
+aad7c1ed-e482-40a3-b0a3-72e73eaa8569,Clubtan,37866857,DK,No matching debtor in Uniconta (find_deptor returned none),4171.110000000001
+d6a78663-a9c0-4b0a-a97b-a7185407235f,Egnens Malerfirma ApS,,DK,No matching debtor in Uniconta (find_deptor returned none),705.48
+133fa69d-23cd-4347-8cad-fad08b6d7265,KP AUTOMATION A/S,36535350,DK,No matching debtor in Uniconta (find_deptor returned none),27.32
+e88cefb5-6666-425f-ae36-fc9c5ca79953,Lau Hinge Thorsgaard,80,DK,No matching debtor in Uniconta (find_deptor returned none),95.64
+41ab11db-e86c-4fbb-8714-e7062b0ef009,Vireä Group Oy ,405383834,DK,No matching debtor in Uniconta (find_deptor returned none),63635.759999999995
+ac520299-4277-4277-a8cb-0dba000860c3,Favna ApS,20 ,DK,No matching debtor in Uniconta (find_deptor returned none),1560.96
+cbcd22ed-616c-4485-84aa-403ca37d72d2,Bredballe Privatskole,60,DK,No matching debtor in Uniconta (find_deptor returned none),1135.79
+59356c03-2984-4f37-bd89-0203f11c241d,Perform by Irani v/Michelle Irani,39031485,DK,No matching debtor in Uniconta (find_deptor returned none),45.19
+0fa90e83-4e06-4883-863a-7f02edd3da9c,EgDB,90,DK,No matching debtor in Uniconta (find_deptor returned none),23.91
+1ef05af8-e407-4653-a3f5-ebee67ec98e1,Lau Hinge Thorsgaard,70,DK,No matching debtor in Uniconta (find_deptor returned none),23.91
+af125b69-b1d9-421d-b0e5-e3901a807bdf,Vetlanda DK,,SE,No matching debtor in Uniconta (find_deptor returned none),85.49
+d72f3f46-8497-4d65-a8d4-d1909d9a6880,Frederiksværk Dyrehospital ApS,,DK,No matching debtor in Uniconta (find_deptor returned none),187.0
+9d03fee1-b6e3-451a-99b2-4a206a5a8940,Pedersen og Madsen,,DK,No matching debtor in Uniconta (find_deptor returned none),132.0
+337503ad-d158-45bf-a5df-6aaeeeeaca12,DK Automobiler A/S,,DK,No matching debtor in Uniconta (find_deptor returned none),209.0
+d173156a-d8ec-4842-962f-1ee81b6c1026,Zederkof A/S,,DK,No matching debtor in Uniconta (find_deptor returned none),385.0

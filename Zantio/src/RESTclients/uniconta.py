@@ -2,10 +2,9 @@ import os
 from dataclasses import asdict
 
 import requests
-import json
-from openpyxl.pivot.fields import Boolean
 
 from RESTclients.dataModels import CustomerInvoice
+
 
 class UnicontaAdapter:
 
@@ -19,10 +18,19 @@ class UnicontaAdapter:
         self._userpass = os.getenv("ERP_PASSWORD")
 
         self.session = requests.Session()
-
         self.token = None
 
+        # Local debtor cache
+        self._debtors_loaded = False
+        self._debtors_rows = []
+        # normalized_vat -> list[debtor_row]
+        self._debtors_by_vat = {}
+
         self.login()
+
+    # ------------------------------------------------------------------
+    # Auth
+    # ------------------------------------------------------------------
 
     def login(self):
         payload = {
@@ -51,58 +59,240 @@ class UnicontaAdapter:
 
         print("Logged in to Uniconta ✔")
 
-
     def ensure_login(self):
         if not self.token:
             self.login()
 
+    # ------------------------------------------------------------------
+    # Debug helpers (optional)
+    # ------------------------------------------------------------------
+
+    def debug_dump_debtors_sample(self, max_rows: int = 20):
+        """
+        Fetch a sample of debtors and print keys and VAT-like fields.
+        Useful to inspect what Uniconta actually returns.
+        """
+        url = f"{self.base_url}/Query/Get/DebtorClient"
+
+        payload = [
+            {
+                "PropertyName": "Account",
+                "FilterValue": "",
+                "Skip": 0,
+                "Take": max_rows,
+                "OrderBy": "true",
+                "OrderByDescending": "false",
+            }
+        ]
+
+        resp = self.session.post(url, json=payload)
+        if not resp.ok:
+            raise RuntimeError(f"debug_dump_debtors_sample failed: {resp.status_code} {resp.text}")
+
+        data = resp.json() or []
+        if not data:
+            print("[DEBUG] No debtors returned from DebtorClient.")
+            return
+
+        print(f"[DEBUG] Got {len(data)} debtor rows. Keys on first row:")
+        print(sorted(list(data[0].keys())))
+
+        print("\n[DEBUG] Sample of VAT-like fields (including Account):")
+        for row in data:
+            name = row.get("Name")
+            vat_candidates = {
+                k: v
+                for k, v in row.items()
+                if (
+                    any(t in k.lower() for t in ["vat", "cvr", "regno"])
+                    or k.lower() == "account"
+                )
+            }
+            print(f"Name={name} → {vat_candidates}")
+
+    # ------------------------------------------------------------------
+    # Normalization helper
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _normalize_vat(value: str | None) -> str:
+        """
+        Normalize VAT/ID for matching: remove spaces, dots, dashes, uppercase.
+        This is used for:
+          - VatNumber
+          - CompanyRegNo / CVR
+          - Account (when it holds CVR-like values)
+        """
+        if value is None:
+            return ""
+
+        s = str(value).strip()
+        s = s.replace(" ", "").replace(".", "").replace("-", "")
+        return s.upper()
+
+    # ------------------------------------------------------------------
+    # Debtor cache (all ID-like numbers → VAT index)
+    # ------------------------------------------------------------------
+
+    def _load_debtors_cache(self):
+        """
+        Load all debtors from Uniconta once and build an index of ID-like values:
+        any field whose key contains 'vat', 'cvr', 'regno' OR is exactly 'Account'
+        is treated as an ID / VAT container.
+        """
+        if self._debtors_loaded:
+            return
+
+        print("[DEBUG] _load_debtors_cache: loading all DebtorClient rows from Uniconta...")
+
+        url = f"{self.base_url}/Query/Get/DebtorClient"
+
+        payload = [
+            {
+                "PropertyName": "Account",
+                "FilterValue": "",
+                "Skip": 0,
+                "Take": 0,
+                "OrderBy": "true",
+                "OrderByDescending": "false",
+            }
+        ]
+
+        resp = self.session.post(url, json=payload)
+        if not resp.ok:
+            raise RuntimeError(f"_load_debtors_cache failed: {resp.status_code} {resp.text}")
+
+        data = resp.json() or []
+        self._debtors_rows = data
+
+        by_vat = {}
+
+        for row in data:
+            vat_values = set()
+            for key, val in row.items():
+                if val is None:
+                    continue
+                key_l = key.lower()
+                if (
+                    any(t in key_l for t in ["vat", "cvr", "regno"])
+                    or key_l == "account"
+                ):
+                    vat_values.add(str(val))
+
+            for raw_vat in vat_values:
+                norm_vat = self._normalize_vat(raw_vat)
+                if norm_vat:
+                    by_vat.setdefault(norm_vat, []).append(row)
+
+        self._debtors_by_vat = by_vat
+        self._debtors_loaded = True
+
+        print(
+            f"[DEBUG] _load_debtors_cache: loaded {len(self._debtors_rows)} debtors, "
+            f"{len(self._debtors_by_vat)} distinct ID/VAT keys (VatNumber/CompanyRegNo/Account)."
+        )
+
+    # ------------------------------------------------------------------
+    # VAT candidate builder (from invoice.customer)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _candidate_vat_values(customer) -> list[str]:
+        """
+        Build a list of possible VAT/ID formats from CloudFactory VAT
+        to try against the unified index (VatNumber, CompanyRegNo, Account).
+        We do NOT use Name for matching.
+        """
+        candidates = set()
+
+        raw = str(customer.vatID or "").strip()
+        if not raw:
+            return []
+
+        # Raw
+        candidates.add(raw)
+
+        # Cleaned
+        cleaned = raw.replace(" ", "").replace(".", "").replace("-", "")
+        candidates.add(cleaned)
+
+        # Prefix with country code if available
+        cc = (customer.countryCode or "").strip()
+        if cc:
+            candidates.add(cc + cleaned)
+            candidates.add(cc.upper() + cleaned)
+
+        # If looks numeric, consider zero-padded (e.g. Danish CVR 8 digits)
+        if cleaned.isdigit() and len(cleaned) < 10:
+            padded = cleaned.zfill(8)
+            candidates.add(padded)
+            if cc:
+                candidates.add(cc + padded)
+                candidates.add(cc.upper() + padded)
+
+        return list(candidates)
+
+    # ------------------------------------------------------------------
+    # Debtor lookup (ID/VAT-only matching)
+    # ------------------------------------------------------------------
+
     def find_deptor(self, invoice):
 
-        if invoice.customer.vatID is None:
+        if not invoice.customer or invoice.customer.vatID is None:
+            print("[DEBUG] find_deptor: missing customer or VAT, skipping.")
             return None
-        #print("vatID: "+str(invoice.customer.vatID))
-        payload = [
-                {
-                    "PropertyName": "VatNumber",
-                    "FilterValue": invoice.customer.vatID,
-                    "Skip": 0,
-                    "Take": 0,
-                    "OrderBy": "true",
-                    "OrderByDescending": "true"
-                }
-            ]
 
-        for endpoint in ["DebtorClient", "DebtorClientUser", "DebtorTransClient"]:
+        # Make sure cache is available
+        self._load_debtors_cache()
 
-            url = f"{self.base_url}/Query/Get/{endpoint}"  # adjust path to your ERP
-            resp = self.session.post(url, json=payload)
-            if not resp.ok:
-                raise RuntimeError(f"ERP create_invoice failed: {resp.status_code} {resp.text}")
-            data = resp.json()
-            if len(data) > 0:
-                break
+        candidates = self._candidate_vat_values(invoice.customer)
+        if not candidates:
+            print(f"[DEBUG] find_deptor: no VAT candidates for customer {invoice.customer.name}")
+            return None
 
+        norm_candidates = [self._normalize_vat(c) for c in candidates if c]
 
-        return data
+        for nc in norm_candidates:
+            if not nc:
+                continue
+            matches = self._debtors_by_vat.get(nc)
+            if matches:
+                first = matches[0]
+                print(
+                    f"[DEBUG] find_deptor: CACHE MATCH by ID/VAT for customer '{invoice.customer.name}' "
+                    f"normID='{nc}' → Account={first.get('Account')} Name={first.get('Name')}"
+                )
+                return matches
 
+        # Nothing found → fail
+        print(
+            f"[DEBUG] find_deptor: NO ID/VAT MATCH in cache for customer '{invoice.customer.name}' "
+            f"VAT candidates={candidates}"
+        )
+        return []
 
+    # ------------------------------------------------------------------
+    # Invoice creation
+    # ------------------------------------------------------------------
 
     def create_invoice(self, invoice: CustomerInvoice, failedlist) -> str:
         """
         Create an invoice in your ERP system.
         Returns the ERP invoice ID/number.
         """
-        erp_customer_id = invoice.customer.external_id
         deptor = self.find_deptor(invoice)
 
         if deptor is None or len(deptor) < 1:
+            print(
+                f"[DEBUG] create_invoice: no debtor found for "
+                f"{invoice.customer.name} (VAT={invoice.customer.vatID}, "
+                f"Country={invoice.customer.countryCode})"
+            )
             failedlist.append(invoice)
             return
 
         deptor = deptor[0]
-        name = deptor.get("Name", "FAAILED")
 
-        # Example JSON payload for a generic ERP.
         payload = {
             "Account": deptor.get("Account"),
             "Account Name": deptor.get("Account Name"),
@@ -111,8 +301,7 @@ class UnicontaAdapter:
             "Simulate": "true"
         }
 
-
-        url = f"{self.base_url}/Crud/Insert/DebtorOrderClient"  # adjust path to your ERP
+        url = f"{self.base_url}/Crud/Insert/DebtorOrderClient"
         resp = self.session.post(url, json=payload)
         if not resp.ok:
             raise RuntimeError(f"ERP create_invoice failed: {resp.status_code} {resp.text}")
@@ -120,20 +309,26 @@ class UnicontaAdapter:
         OrderNumber = str(data.get("OrderNumber") or data.get("invoiceNumber"))
         print(f"Created ERP invoice {OrderNumber} for customer {invoice.customer.name}")
 
+        # --- Create order lines ---
+        line_url = f"{self.base_url}/Crud/InsertList/DebtorOrderLineClient"
 
-        url = f"{self.base_url}/Crud/InsertList/DebtorOrderLineClient"  # adjust path to your ERP
-        for categoryKey in invoice.categories:
-            category = invoice.categories[categoryKey]
-            jsonObject = []
+        all_lines = []
+        for category in invoice.categories.values():
             for catline in category.lines:
-                catline.OrderNumber = OrderNumber
-                print(asdict(catline))
-                jsonObject.append(asdict(catline))
+                all_lines.append({
+                    "OrderNumber": OrderNumber,
+                    "Item": "CFTEST",  # <-- MUST exist in Uniconta inventory
+                    "Text": str(catline.ItemName),
+                    "Qty": float(catline.Quantity or 0),
+                    "Price": float(catline.UnitPrice or 0),
+                })
 
-            resp = self.session.post(url, json=jsonObject )
-            if not resp.ok:
-                raise RuntimeError(f"ERP create_invoice failed: {resp.status_code} {resp.text}")
-            data = resp.json()
+        print("Sending lines to Uniconta:", all_lines[:3], "...")
 
+        resp = self.session.post(line_url, json=all_lines)
+        if not resp.ok:
+            raise RuntimeError(
+                f"ERP create_invoice failed (lines): {resp.status_code} {resp.text}"
+            )
 
         return OrderNumber

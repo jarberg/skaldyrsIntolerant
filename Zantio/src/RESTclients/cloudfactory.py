@@ -4,9 +4,6 @@ import os
 from RESTclients.dataModels import Customer, CloudFactoryInvoiceCategory, CloudFactoryInvoice
 from datetime import date, datetime
 from typing import Dict, Any, List
-from dotenv import load_dotenv
-
-load_dotenv()
 
 
 CLOUDFACTORY_EXCHANGE = os.getenv("CLOUDFACTORY_EXCHANGE")
