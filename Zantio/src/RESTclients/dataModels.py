@@ -8,6 +8,11 @@ class PartnerInvoice:
     invoice_date: Optional[date]
     lines: Optional[dict]
     extras: Optional[Dict[str, Any]] = field(default_factory=dict)
+    def __iter__(self):
+        for key, value in self.extras.items():
+            for key2, value2 in value:
+                if key not in []:
+                    yield key, value
 
 @dataclass
 class CloudFactoryInvoiceCategory:
@@ -60,6 +65,11 @@ class CustomerInvoiceCategoryLine_keepit(CustomerInvoiceCategoryLine_base):
     LicenseAgreementType: str
     Offering: str
     ProductFamily: str
+
+    def __iter__(self):
+        for key, value in self.__dict__.items():
+            if key not in []:
+                yield key, value
 
 
 @dataclass

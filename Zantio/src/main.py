@@ -266,7 +266,11 @@ def main(*args, **kwargs):
                 invoice.categories.get(catKey).excelLink
             )
             wb = load_workbook(io.BytesIO(excel_bytes))
-            ws = wb.active
+
+            if wb.active.title == "Usage" or wb.active.title == "Acronis Total":
+                ws = wb.worksheets[1]
+            else:
+                ws = wb.active
 
             # header row
             header_row = next(ws.iter_rows(values_only=True))
