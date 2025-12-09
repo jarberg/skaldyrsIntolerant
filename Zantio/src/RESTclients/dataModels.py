@@ -26,8 +26,6 @@ class CloudFactoryInvoice:
     categories: Dict[str, CloudFactoryInvoiceCategory] = field(default_factory=dict)
     extras: Dict[str, Any] = field(default_factory=dict)
 
-
-
 @dataclass
 class Customer:
     id: Optional[str]

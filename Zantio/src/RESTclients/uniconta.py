@@ -4,33 +4,28 @@ from dataclasses import asdict
 import requests
 
 from RESTclients.dataModels import CustomerInvoice
+from reconcilliation.utils import recon_data
 
 
-class UnicontaAdapter:
+class UnicontaClient:
 
     customerDataBase: list
 
     def __init__(self) -> None:
 
         self.base_url = os.getenv("ERP_BASE_URL", "https://api.uniconta.com/")
-        self.api_key = os.getenv("ERP_API_TOKEN") or "5a7ae53b-08cd-4ff0-aa56-60f8ecb8f37c"
+        self.api_key = os.getenv("ERP_API_TOKEN")
         self._username = os.getenv("ERP_USERNAME")
         self._userpass = os.getenv("ERP_PASSWORD")
 
         self.session = requests.Session()
         self.token = None
 
-        # Local debtor cache
         self._debtors_loaded = False
         self._debtors_rows = []
-        # normalized_vat -> list[debtor_row]
         self._debtors_by_vat = {}
 
         self.login()
-
-    # ------------------------------------------------------------------
-    # Auth
-    # ------------------------------------------------------------------
 
     def login(self):
         payload = {
@@ -192,9 +187,6 @@ class UnicontaAdapter:
             f"{len(self._debtors_by_vat)} distinct ID/VAT keys (VatNumber/CompanyRegNo/Account)."
         )
 
-    # ------------------------------------------------------------------
-    # VAT candidate builder (from invoice.customer)
-    # ------------------------------------------------------------------
 
     @staticmethod
     def _candidate_vat_values(customer) -> list[str]:
@@ -236,7 +228,7 @@ class UnicontaAdapter:
     # Debtor lookup (ID/VAT-only matching)
     # ------------------------------------------------------------------
 
-    def find_deptor(self, invoice):
+    def find_deptor(self, invoice, failedlist):
 
         if not invoice.customer or invoice.customer.vatID is None:
             print("[DEBUG] find_deptor: missing customer or VAT, skipping.")
@@ -251,6 +243,7 @@ class UnicontaAdapter:
             return None
 
         norm_candidates = [self._normalize_vat(c) for c in candidates if c]
+        matchesFound = []
 
         for nc in norm_candidates:
             if not nc:
@@ -262,54 +255,74 @@ class UnicontaAdapter:
                     f"[DEBUG] find_deptor: CACHE MATCH by ID/VAT for customer '{invoice.customer.name}' "
                     f"normID='{nc}' → Account={first.get('Account')} Name={first.get('Name')}"
                 )
-                return matches
+                matchesFound = matches
+                break
 
-        # Nothing found → fail
-        print(
-            f"[DEBUG] find_deptor: NO ID/VAT MATCH in cache for customer '{invoice.customer.name}' "
-            f"VAT candidates={candidates}"
-        )
-        return []
-
-    # ------------------------------------------------------------------
-    # Invoice creation
-    # ------------------------------------------------------------------
-
-    def create_invoice(self, invoice: CustomerInvoice, failedlist) -> str:
-        """
-        Create an invoice in your ERP system.
-        Returns the ERP invoice ID/number.
-        """
-        deptor = self.find_deptor(invoice)
-
-        if deptor is None or len(deptor) < 1:
+        if matchesFound is None or len(matchesFound) < 1:
             print(
                 f"[DEBUG] create_invoice: no debtor found for "
                 f"{invoice.customer.name} (VAT={invoice.customer.vatID}, "
                 f"Country={invoice.customer.countryCode})"
             )
             failedlist.append(invoice)
-            return
+            return None
 
-        deptor = deptor[0]
+        deptor = matchesFound[0]
+        return deptor
 
-        payload = {
-            "Account": deptor.get("Account"),
-            "Account Name": deptor.get("Account Name"),
-            "YourRef": "API-ORDER-001",
-            "invoice_date": invoice.period_end,
-            "Simulate": "true"
-        }
+    # ------------------------------------------------------------------
+    # Invoice creation
+    # ------------------------------------------------------------------
+    def find_orderNumber(self, debtor, invoice):
+        OrderNumber = None
 
-        url = f"{self.base_url}/Crud/Insert/DebtorOrderClient"
+        accountname = debtor.get("Account", "None")
+        payload = [
+            {
+                "PropertyName": "Account",
+                "FilterValue": accountname,
+                "Skip": 0,
+                "Take": 0,
+                "OrderBy": "true",
+                "OrderByDescending": "false",
+            }
+        ]
+
+        url = f"{self.base_url}/Query/Get/DebtorOrderClient"
         resp = self.session.post(url, json=payload)
         if not resp.ok:
             raise RuntimeError(f"ERP create_invoice failed: {resp.status_code} {resp.text}")
         data = resp.json()
-        OrderNumber = str(data.get("OrderNumber") or data.get("invoiceNumber"))
+        if len(data) == 0:
+            url = f"{self.base_url}/Crud/Insert/DebtorOrderClient"
+            payload = {
+                "Account": debtor.get("Account"),
+                "Account Name": debtor.get("Account Name"),
+                "YourRef": "API-ORDER-001",
+                "invoice_date": invoice.period_end,
+                "Simulate": "true"
+            }
+            resp = self.session.post(url, json=payload)
+            if not resp.ok:
+                raise RuntimeError(f"ERP create_invoice failed: {resp.status_code} {resp.text}")
+            data = resp.json()
+            OrderNumber = str(data.get("OrderNumber") or data.get("invoiceNumber"))
+        else:
+            OrderNumber = str(next(iter(data)).get("OrderNumber") or next(iter(data)).get("invoiceNumber"))
+        if OrderNumber == "Invalid" or OrderNumber == None:
+            print("order number not found")
+        return OrderNumber
+
+    def create_invoice(self, invoice: CustomerInvoice) -> str:
+
+        deptor = self.find_deptor(invoice, recon_data.failedList)
+        if deptor is None:
+            return None
+
+        OrderNumber = self.find_orderNumber(deptor, invoice)
+
         print(f"Created ERP invoice {OrderNumber} for customer {invoice.customer.name}")
 
-        # --- Create order lines ---
         line_url = f"{self.base_url}/Crud/InsertList/DebtorOrderLineClient"
 
         all_lines = []
@@ -317,7 +330,7 @@ class UnicontaAdapter:
             for catline in category.lines:
                 all_lines.append({
                     "OrderNumber": OrderNumber,
-                    "Item": "CFTEST",  # <-- MUST exist in Uniconta inventory
+                    "Item": "CFTEST",
                     "Text": str(catline.ItemName),
                     "Qty": float(catline.Quantity or 0),
                     "Total" : float(catline.Amount or 0),

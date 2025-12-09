@@ -11,10 +11,8 @@ from typing import Dict, Any, List
 
 CLOUDFACTORY_EXCHANGE = os.getenv("CLOUDFACTORY_EXCHANGE")
 CLOUDFACTORY_PARTNER_ID = os.getenv("CLOUDFACTORY_PARTNER_ID")
-
 CLOUDFACTORY_API_TOKEN = ""
 CLOUDFACTORY_BASE_URL = "https://portal.api.cloudfactory.dk/"
-
 
 if not CLOUDFACTORY_EXCHANGE or not CLOUDFACTORY_PARTNER_ID:
     raise RuntimeError("Missing exchange API credentials. Set CLOUDFATORY_EXCHANGE and CLOUDFATORY_PARTNER_ID.")

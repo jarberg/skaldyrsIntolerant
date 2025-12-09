@@ -1,0 +1,11 @@
+Customer ID,Customer Name,VAT,Country,Reason,Total Amount (DKK)
+c25a457b-1c8a-44bc-8e01-00ac3d20114a,Zantio IT,41470704,DK,No matching debtor in Uniconta (find_deptor returned none),43223.41000000001
+aad7c1ed-e482-40a3-b0a3-72e73eaa8569,Clubtan,37866857,DK,No matching debtor in Uniconta (find_deptor returned none),4171.110000000001
+133fa69d-23cd-4347-8cad-fad08b6d7265,KP AUTOMATION A/S,36535350,DK,No matching debtor in Uniconta (find_deptor returned none),27.32
+e88cefb5-6666-425f-ae36-fc9c5ca79953,Lau Hinge Thorsgaard,80,DK,No matching debtor in Uniconta (find_deptor returned none),95.64
+41ab11db-e86c-4fbb-8714-e7062b0ef009,Vireä Group Oy ,405383834,DK,No matching debtor in Uniconta (find_deptor returned none),63728.049999999996
+ac520299-4277-4277-a8cb-0dba000860c3,Favna ApS,20 ,DK,No matching debtor in Uniconta (find_deptor returned none),1560.96
+cbcd22ed-616c-4485-84aa-403ca37d72d2,Bredballe Privatskole,60,DK,No matching debtor in Uniconta (find_deptor returned none),1135.79
+59356c03-2984-4f37-bd89-0203f11c241d,Perform by Irani v/Michelle Irani,39031485,DK,No matching debtor in Uniconta (find_deptor returned none),45.19
+0fa90e83-4e06-4883-863a-7f02edd3da9c,EgDB,90,DK,No matching debtor in Uniconta (find_deptor returned none),23.91
+1ef05af8-e407-4653-a3f5-ebee67ec98e1,Lau Hinge Thorsgaard,70,DK,No matching debtor in Uniconta (find_deptor returned none),23.91
