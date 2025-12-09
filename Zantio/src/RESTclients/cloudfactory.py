@@ -1,3 +1,6 @@
+from io import BytesIO
+from pathlib import Path
+
 import requests
 import os
 
@@ -109,11 +112,24 @@ class CloudFactoryClient:
 
         # Determine the latest invoice date
         latest_date = max(inv.endDate for inv in invoices)
-
-        return [
+        ret_list = [
             inv for inv in invoices
             if inv.endDate == latest_date
         ]
+        if not ret_list:
+            return []
+
+        for invoice in ret_list:
+            response = requests.get(invoice.extras.get("invoicePdf"), stream=True)
+            response.raise_for_status()  # fails loudly if download fails
+
+            with open(invoice.extras.get("invoiceNo")+".pdf", "wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+
+
+        return ret_list
 
     def list_customers(self) -> List[Customer]:
         """
