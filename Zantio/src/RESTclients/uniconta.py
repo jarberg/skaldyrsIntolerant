@@ -320,7 +320,8 @@ class UnicontaAdapter:
                     "Item": "CFTEST",  # <-- MUST exist in Uniconta inventory
                     "Text": str(catline.ItemName),
                     "Qty": float(catline.Quantity or 0),
-                    "Price": float(catline.UnitPrice or 0),
+                    "Total" : float(catline.Amount or 0),
+                    #"Price": float(catline.UnitPrice or 0),
                 })
 
         print("Sending lines to Uniconta:", all_lines[:3], "...")
