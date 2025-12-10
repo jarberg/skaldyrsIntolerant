@@ -1,7 +1,7 @@
 {
   "total_cloudfactory_amount": 815297.64,
-  "total_success_amount": 690074.35,
-  "total_failed_debtors_amount": 114035.29,
+  "total_success_amount": 688288.43,
+  "total_failed_debtors_amount": 115821.21,
   "total_failed_cloudfactory_customers_amount": 11188.0,
   "total_no_customerid_amount": 5284.27,
   "success_csv": "C:\\Users\\alexh\\skaldyrsIntolerant\\Zantio\\src\\reconcilliation\\output\\success_invoices.csv",
