@@ -1,6 +1,6 @@
 from RESTclients.CloudFactory.cloudfactory import generate_correct_product_line
 from RESTclients.dataModels import CustomerInvoice_Error, CustomerInvoice, CustomerInvoiceCategory
-from adapters.excel import get_headers, get_id_keys
+from adapters.excel import convert_excel_to_dict, get_id_keys
 from reconcilliation.utils import recon_data
 
 
@@ -82,28 +82,21 @@ def generate_invoice(cloudFac_client, uniconta_client, invoices, foundCatKeyDict
         for catKey in invoice.categories.keys():
             foundCatKeyDict.add(catKey)
 
-            # load excel bytes
             excel_bytes = cloudFac_client.fetch_billing_excel(
                 invoice.categories.get(catKey).excelLink
             )
-            headers, data_rows = get_headers(excel_bytes)
+            data_dict = convert_excel_to_dict(excel_bytes)
 
-            id_key, vat_key, name_key, success = get_id_keys(headers, data_rows, catKey)
+            id_key, vat_key, name_key, success = get_id_keys(data_dict, catKey)
             if not success:
                 continue
 
             previousCustomerid = None
 
-            for row in data_rows:
-                record = dict(zip(headers, row))
-                try:
-                    amount_val = float(record.get("Amount", 0) or 0)
-                except (TypeError, ValueError):
-                    amount_val = 0.0
-
+            for record in data_dict:
                 raw_id = record.get(id_key)
                 if not raw_id:
-                    recon_data.add_no_customerID_row(amount_val, catKey, record, name_key, vat_key)
+                    recon_data.add_no_customerID_row(catKey, record, name_key, vat_key)
                     continue
 
                 customerid = (
@@ -135,4 +128,4 @@ def generate_invoice(cloudFac_client, uniconta_client, invoices, foundCatKeyDict
                 category.lines.append(line)
                 previousCustomerid = customerid
 
-                recon_data.total_amount_all += amount_val
+                recon_data.add_to_total_amount(record)

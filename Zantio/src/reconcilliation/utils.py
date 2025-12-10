@@ -23,7 +23,47 @@ class recon_data:
     failedCustomerlist: dict[str, CustomerInvoice_Error] = {}
 
     @classmethod
+    def add_failed_customer(cls, catKey, record):
+
+        try:
+            amount_val = float(record.get("Amount", 0) or 0)
+        except (TypeError, ValueError):
+            amount_val = 0.0
+
+        cls.total_amount_no_customerid += amount_val
+        cls.no_customerid_rows.append(
+            {
+                "Category": catKey,
+                "InvoicePeriodStart": record.get("Start Date", ""),
+                "InvoicePeriodEnd": record.get("End Date", ""),
+                "Item Name": record.get("Item Name", ""),
+                "ItemNo": record.get("ItemNo", ""),
+                "Quantity": record.get("Quantity", ""),
+                "Unit Price": record.get("Unit Price", ""),
+                "Amount": amount_val,
+                "Currency": record.get("Currency", ""),
+                "Customer Id": "",
+                "Customer Name (from Excel)": "",
+                "VAT (from Excel)": "",
+                "Note": "No customer id column in billing file",
+            }
+        )
+
+    @classmethod
+    def add_to_total_amount(cls, record):
+        try:
+            amount_val = float(record.get("Amount", 0) or 0)
+        except (TypeError, ValueError):
+            amount_val = 0.0
+        recon_data.total_amount_all += amount_val
+
+    @classmethod
     def add_no_customerID_row(cls, amount_val, catKey, record, name_key="", vat_key=""):
+        try:
+            amount_val = float(record.get("Amount", 0) or 0)
+        except (TypeError, ValueError):
+            amount_val = 0.0
+
         cls.total_amount_no_customerid += amount_val  # Ingen Customer Id i række kan ikke tildele til kunde
         cls.no_customerid_rows.append(
             {
@@ -42,6 +82,35 @@ class recon_data:
                 "Note": "Row has id column but Customer Id is empty",
             }
         )
+
+def report_successOrFailure(customerInvoice, noNewfailures):
+    # Sum invoice amount: ren Amount (CloudFactory-beløb)
+    inv_amount = 0.0
+    for category in customerInvoice.categories.values():
+        for line in category.lines:
+            try:
+                inv_amount += float(line.Amount or 0)
+            except (TypeError, ValueError):
+                pass
+
+    if noNewfailures:
+        # No new failure added => this invoice was successfully posted
+        recon_data.total_amount_success += inv_amount
+
+        cust = customerInvoice.customer
+        recon_data.success_rows.append(
+            {
+                "Customer ID": cust.id,
+                "Customer Name": cust.name,
+                "VAT": cust.vatID,
+                "Country": cust.countryCode,
+                "Total Amount (DKK)": inv_amount,
+            }
+        )
+    else:
+        # This invoice ended up in failedList
+        recon_data.total_amount_failed += inv_amount
+
 
 def compute_line_total(line) -> float:
     """
@@ -246,10 +315,10 @@ def setupStreamletPage(foundCatKeyDict):
     # --- Reconciliation summary (console) ---
     print("=== RECONCILIATION SUMMARY (ex. VAT) ===")
     print(f"Total CloudFactory per-customer amount processed         : {recon_data.total_amount_all+recon_data.total_amount_no_customerid:,.2f} DKK")
-    print(f"Mapped to existing Uniconta debtors                  : {recon_data.total_amount_success:,.2f} DKK")
-    print(f"No matching debtor in Uniconta (skipped)             : {recon_data.total_amount_failed:,.2f} DKK")
-    print(f"No matching CloudFactory customer (failed mapping)   : {total_failed_cf:,.2f} DKK")
-    print(f"Lines with NO customer id in billing file            : {recon_data.total_amount_no_customerid:,.2f} DKK")
+    print(f"  -> Mapped to existing Uniconta debtors                  : {recon_data.total_amount_success:,.2f} DKK")
+    print(f"  -> No matching debtor in Uniconta (skipped)             : {recon_data.total_amount_failed:,.2f} DKK")
+    print(f"  -> No matching CloudFactory customer (failed mapping)   : {total_failed_cf:,.2f} DKK")
+    print(f"  -> Lines with NO customer id in billing file            : {recon_data.total_amount_no_customerid:,.2f} DKK")
     print(
         "Check (success + failed_debtors + failed_cf_customers)   : "
         f"{(recon_data.total_amount_success + recon_data.total_amount_failed + total_failed_cf):,.2f} DKK"
