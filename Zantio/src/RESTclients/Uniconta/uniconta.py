@@ -1,11 +1,9 @@
 import os
-from dataclasses import asdict
 
 import requests
 
 from RESTclients.dataModels import CustomerInvoice
-from reconcilliation.utils import recon_data
-
+from reconcilliation.utils import recon_data, report_successOrFailure
 
 class UnicontaClient:
 
@@ -25,16 +23,16 @@ class UnicontaClient:
         self._debtors_rows = []
         self._debtors_by_vat = {}
 
-        self.login()
+        self._login()
 
-    def login(self):
+    def _login(self):
         payload = {
             "Username": self._username,
             "Password": self._userpass,
             "apiKey": self.api_key
         }
 
-        url = f"{self.base_url}/Login"
+        url = f"{self.base_url}Login"
         r = requests.post(url, json=payload)
 
         if not r.ok:
@@ -52,48 +50,11 @@ class UnicontaClient:
             "Content-Type": "application/json",
         })
 
-        print("Logged in to Uniconta ✔")
+        print("Logged in to Uniconta")
 
-    def ensure_login(self):
+    def _ensure_login(self):
         if not self.token:
             self.login()
-
-    def debug_dump_debtors_sample(self, max_rows: int = 20):
-        """
-        Fetch a sample of debtors and print keys and VAT-like fields.
-        Useful to inspect what Uniconta actually returns.
-        """
-        url = f"{self.base_url}/Query/Get/DebtorClient"
-
-        payload = [
-            {
-                "PropertyName": "Account",
-                "FilterValue": "",
-                "Skip": 0,
-                "Take": max_rows,
-                "OrderBy": "true",
-                "OrderByDescending": "false",
-            }
-        ]
-
-        resp = self.session.post(url, json=payload)
-        if not resp.ok:
-            raise RuntimeError(f"debug_dump_debtors_sample failed: {resp.status_code} {resp.text}")
-
-        data = resp.json() or []
-        if not data:
-            return
-
-        for row in data:
-            name = row.get("Name")
-            vat_candidates = {
-                k: v
-                for k, v in row.items()
-                if (
-                    any(t in k.lower() for t in ["vat", "cvr", "regno"])
-                    or k.lower() == "account"
-                )
-            }
 
     def _load_debtors_cache(self):
         """
@@ -274,16 +235,13 @@ class UnicontaClient:
             #print("order number not found")
         return OrderNumber
 
-    def create_invoice(self, invoice: CustomerInvoice) -> str:
+    def createOrFetchOrder_invoice(self, invoice: CustomerInvoice) -> str:
 
         deptor = self.find_deptor_from_invoice(invoice)
         if deptor is None:
             return None
 
         OrderNumber = self.find_orderNumber(deptor, invoice)
-
-        #print(f"Created ERP invoice {OrderNumber} for customer {invoice.customer.name}")
-
         line_url = f"{self.base_url}/Crud/InsertList/DebtorOrderLineClient"
 
         all_lines = []
@@ -294,12 +252,8 @@ class UnicontaClient:
                     "Item": "CFTEST",
                     "Text": str(catline.ItemName),
                     "Qty": float(catline.Quantity or 0),
-                    "Total" : float(catline.Amount or 0),
-                    #"Price": float(catline.UnitPrice or 0),
+                    "Total" : float(catline.Amount or 0)
                 })
-
-        #print("Sending lines to Uniconta:", all_lines[:3], "...")
-
         resp = self.session.post(line_url, json=all_lines)
         if not resp.ok:
             raise RuntimeError(
@@ -308,37 +262,11 @@ class UnicontaClient:
 
         return OrderNumber
 
-
 def createUnicontaOrdersWithLines(uniconta_client):
     # Actually create invoices in Uniconta
     for customerInvoice in recon_data.invoiceCustomerdict.values():
         before = len(recon_data.failedList)
-        uniconta_client.create_invoice(customerInvoice,)
+        uniconta_client.createOrFetchOrder_invoice(customerInvoice,)
         after = len(recon_data.failedList)
 
-        # Sum invoice amount: ren Amount (CloudFactory-beløb)
-        inv_amount = 0.0
-        for category in customerInvoice.categories.values():
-            for line in category.lines:
-                try:
-                    inv_amount += float(line.Amount or 0)
-                except (TypeError, ValueError):
-                    pass
-
-        if after == before:
-            # No new failure added => this invoice was successfully posted
-            recon_data.total_amount_success += inv_amount
-
-            cust = customerInvoice.customer
-            recon_data.success_rows.append(
-                {
-                    "Customer ID": cust.id,
-                    "Customer Name": cust.name,
-                    "VAT": cust.vatID,
-                    "Country": cust.countryCode,
-                    "Total Amount (DKK)": inv_amount,
-                }
-            )
-        else:
-            # This invoice ended up in failedList
-            recon_data.total_amount_failed += inv_amount
+        report_successOrFailure(customerInvoice, before==after)
