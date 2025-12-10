@@ -168,14 +168,14 @@ class UnicontaClient:
 
     def find_deptor_from_invoice(self, invoice):
         if not invoice.customer or invoice.customer.vatID is None:
-            recon_data.failedList.append(invoice)
+            report_successOrFailure(invoice, True)
             return None
 
         self._load_debtors_cache()
 
         candidates = self._candidate_vat_values(invoice.customer)
         if not candidates:
-            recon_data.failedList.append(invoice)
+            report_successOrFailure(invoice, True)
             return None
 
         norm_candidates = [self._normalize_vat(c) for c in candidates if c]
@@ -190,7 +190,7 @@ class UnicontaClient:
                 break
 
         if matchesFound is None or len(matchesFound) < 1:
-            recon_data.failedList.append(invoice)
+            report_successOrFailure(invoice, True)
             return None
 
         deptor = matchesFound[0]
@@ -237,11 +237,11 @@ class UnicontaClient:
             #print("order number not found")
         return OrderNumber
 
-    def createOrFetchOrder_invoice(self, invoice: CustomerInvoice) -> str:
-
+    def create_uniconta_order_with_lines(self, invoice: CustomerInvoice) -> str:
+        error = ""
         deptor = self.find_deptor_from_invoice(invoice)
         if deptor is None:
-            return None
+            return "Could not find deptor for invoice"
 
         OrderNumber = self.find_orderNumber(deptor, invoice)
         line_url = f"{self.base_url}Crud/InsertList/DebtorOrderLineClient"
@@ -259,15 +259,10 @@ class UnicontaClient:
         resp = self.session.post(line_url, json=all_lines)
         if not resp.ok:
             raise RuntimeError(
-                f"ERP create_invoice failed (lines): {resp.status_code} {resp.text}"
+                f"ERP insert DebtorOrderLineClient failed (lines): {resp.status_code} {resp.text}"
             )
+        report_successOrFailure(invoice, False)
 
-        return OrderNumber
+        return None
 
-def createUnicontaOrdersWithLines(uniconta_client):
-    # Actually create invoices in Uniconta
-    for customerInvoice in recon_data.invoiceCustomerdict.values():
-        before = len(recon_data.failedList)
-        uniconta_client.createOrFetchOrder_invoice(customerInvoice,)
-        after = len(recon_data.failedList)
-        report_successOrFailure(customerInvoice, before==after)
+

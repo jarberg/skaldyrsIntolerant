@@ -78,6 +78,8 @@ def generate_customer_invoice(
 
 
 def generate_invoice(cloudFac_client, uniconta_client, invoices, foundCatKeyDict):
+    errors = 0
+
     for invoice in invoices:
         for catKey in invoice.categories.keys():
             foundCatKeyDict.add(catKey)
@@ -89,6 +91,7 @@ def generate_invoice(cloudFac_client, uniconta_client, invoices, foundCatKeyDict
 
             id_key, vat_key, name_key, success = get_id_keys(data_dict, catKey)
             if not success:
+                errors+=1
                 continue
 
             previousCustomerid = None
@@ -97,6 +100,7 @@ def generate_invoice(cloudFac_client, uniconta_client, invoices, foundCatKeyDict
                 raw_id = record.get(id_key)
                 if not raw_id:
                     recon_data.add_no_customerID_row(catKey, record, name_key, vat_key)
+                    errors += 1
                     continue
 
                 customerid = (
@@ -129,3 +133,4 @@ def generate_invoice(cloudFac_client, uniconta_client, invoices, foundCatKeyDict
                 previousCustomerid = customerid
 
                 recon_data.add_to_total_amount(record)
+    return errors

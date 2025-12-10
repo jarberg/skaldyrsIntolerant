@@ -83,21 +83,22 @@ class recon_data:
             }
         )
 
-def report_successOrFailure(customerInvoice, noNewfailures):
+def report_successOrFailure(invoice, failure):
     # Sum invoice amount: ren Amount (CloudFactory-beløb)
     inv_amount = 0.0
-    for category in customerInvoice.categories.values():
+    for category in invoice.categories.values():
         for line in category.lines:
             try:
                 inv_amount += float(line.Amount or 0)
             except (TypeError, ValueError):
                 pass
 
-    if noNewfailures:
+    if failure:
+        recon_data.failedList.append(invoice)
         # No new failure added => this invoice was successfully posted
         recon_data.total_amount_success += inv_amount
 
-        cust = customerInvoice.customer
+        cust = invoice.customer
         recon_data.success_rows.append(
             {
                 "Customer ID": cust.id,
