@@ -32,7 +32,8 @@ import streamlit as st
 # Sti-opsætning
 # ---------------------------------------------------------
 APP_DIR = Path(__file__).resolve().parent
-OUTPUT_DIR = APP_DIR / "output"
+OUTPUT_DIR = APP_DIR / "reconcilliation" / "output"
+
 
 SUMMARY_PATH = OUTPUT_DIR / "reconciliation_summary.json"
 
@@ -162,6 +163,11 @@ st.divider()
 # ---------------------------------------------------------
 summary = load_summary()
 
+# ---------------------------------------------------------
+# Resumé-bokse
+# ---------------------------------------------------------
+summary = load_summary()
+
 if summary is None:
     st.info(
         "Ingen resuméfil fundet endnu. "
@@ -176,50 +182,118 @@ else:
     total_failed_cf_customers = summary.get("total_failed_cloudfactory_customers_amount", 0.0)
     total_no_customerid = summary.get("total_no_customerid_amount", 0.0)
 
+    # Samlet fakturasum (inkl. linjer uden Customer Id)
+    invoice_total = cf_total + total_no_customerid
+
     notes = summary.get("calculation_notes_da", {})
 
     st.subheader("Resumé (eks. moms)")
 
-    st.info(
-        f"**CloudFactory total (per kunde, med kunde-id):** {format_currency(cf_total)}"
-    )
+    # --- PowerBI-style top KPI (fakturatotal) ---
+    top_card = f"""
+    <div style="
+        padding: 18px 22px;
+        border-radius: 10px;
+        background: #0b1120;
+        border: 1px solid #1f2937;
+        margin-bottom: 18px;
+    ">
+      <div style="
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.14em;
+          color: #9ca3af;
+          font-weight: 600;
+      ">
+        CloudFactory fakturatotal (inkl. linjer uden Customer Id)
+      </div>
+      <div style="
+          font-size: 32px;
+          font-weight: 800;
+          margin-top: 4px;
+          color: #f9fafb;
+      ">
+        {format_currency(invoice_total)}
+      </div>
+      <div style="
+          font-size: 12px;
+          color: #9ca3af;
+          margin-top: 4px;
+      ">
+        Ekskl. moms. Beregnet ud fra CloudFactory-feltet 'Amount' i billing-filerne.
+      </div>
+    </div>
+    """
+    st.markdown(top_card, unsafe_allow_html=True)
 
+    # --- Fordeling i 3 kolonner (ens layout) ---
     col1, col2, col3 = st.columns(3)
 
+    def kpi_card(label: str, value: float, note: str | None = None):
+        note_html = f"<div style='font-size:11px; color:#9ca3af; margin-top:4px;'>{note}</div>" if note else ""
+        html = f"""
+        <div style="
+            padding: 14px 16px;
+            border-radius: 10px;
+            background: #020617;
+            border: 1px solid #1e293b;
+            margin-bottom: 10px;
+            height: 100%;
+        ">
+          <div style="
+              font-size:11px;
+              text-transform:uppercase;
+              letter-spacing:0.12em;
+              color:#9ca3af;
+              font-weight:600;
+          ">
+            {label}
+          </div>
+          <div style="
+              font-size:22px;
+              font-weight:700;
+              margin-top:4px;
+              color:#e5e7eb;
+          ">
+            {format_currency(value)}
+          </div>
+          {note_html}
+        </div>
+        """
+        st.markdown(html, unsafe_allow_html=True)
+
     with col1:
-        st.metric(
-            label="Bogført mod Uniconta-debitorer",
-            value=format_currency(total_success),
+        kpi_card(
+            "Bogført mod Uniconta-debitorer",
+            total_success,
+            notes.get("booked_to_debtors", "")
         )
-        if "booked_to_debtors" in notes:
-            st.caption(notes["booked_to_debtors"])
+
+        # Linjer uden Customer Id sammen med bogført i venstre kolonne
+        kpi_card(
+            "Linjer uden Customer Id i billing-Excel",
+            total_no_customerid,
+            notes.get("no_customerid", "")
+        )
 
     with col2:
-        st.metric(
-            label="Ingen debitor i Uniconta",
-            value=format_currency(total_failed_debtors),
+        kpi_card(
+            "Ingen debitor i Uniconta",
+            total_failed_debtors,
+            notes.get("missing_debtors", "")
         )
-        if "missing_debtors" in notes:
-            st.caption(notes["missing_debtors"])
 
     with col3:
-        st.metric(
-            label="Ingen kundematch i CloudFactory",
-            value=format_currency(total_failed_cf_customers),
+        kpi_card(
+            "Ingen kundematch i CloudFactory",
+            total_failed_cf_customers,
+            notes.get("missing_cf_customers", "")
         )
-        if "missing_cf_customers" in notes:
-            st.caption(notes["missing_cf_customers"])
-
-    st.metric(
-        label="Linjer uden Customer Id i billing-Excel",
-        value=format_currency(total_no_customerid),
-    )
-    if "no_customerid" in notes:
-        st.caption(notes["no_customerid"])
 
     st.caption(
         "Alle summer er baseret på CloudFactory-feltet 'Amount' i billing-filerne."
     )
+
 
 st.divider()
 
