@@ -58,10 +58,6 @@ class UnicontaClient:
         if not self.token:
             self.login()
 
-    # ------------------------------------------------------------------
-    # Debug helpers (optional)
-    # ------------------------------------------------------------------
-
     def debug_dump_debtors_sample(self, max_rows: int = 20):
         """
         Fetch a sample of debtors and print keys and VAT-like fields.
@@ -86,13 +82,8 @@ class UnicontaClient:
 
         data = resp.json() or []
         if not data:
-            print("[DEBUG] No debtors returned from DebtorClient.")
             return
 
-        print(f"[DEBUG] Got {len(data)} debtor rows. Keys on first row:")
-        print(sorted(list(data[0].keys())))
-
-        print("\n[DEBUG] Sample of VAT-like fields (including Account):")
         for row in data:
             name = row.get("Name")
             vat_candidates = {
@@ -103,31 +94,6 @@ class UnicontaClient:
                     or k.lower() == "account"
                 )
             }
-            print(f"Name={name} → {vat_candidates}")
-
-    # ------------------------------------------------------------------
-    # Normalization helper
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _normalize_vat(value: str | None) -> str:
-        """
-        Normalize VAT/ID for matching: remove spaces, dots, dashes, uppercase.
-        This is used for:
-          - VatNumber
-          - CompanyRegNo / CVR
-          - Account (when it holds CVR-like values)
-        """
-        if value is None:
-            return ""
-
-        s = str(value).strip()
-        s = s.replace(" ", "").replace(".", "").replace("-", "")
-        return s.upper()
-
-    # ------------------------------------------------------------------
-    # Debtor cache (all ID-like numbers → VAT index)
-    # ------------------------------------------------------------------
 
     def _load_debtors_cache(self):
         """
@@ -138,7 +104,7 @@ class UnicontaClient:
         if self._debtors_loaded:
             return
 
-        print("[DEBUG] _load_debtors_cache: loading all DebtorClient rows from Uniconta...")
+        #print("[DEBUG] _load_debtors_cache: loading all DebtorClient rows from Uniconta...")
 
         url = f"{self.base_url}/Query/Get/DebtorClient"
 
@@ -182,11 +148,26 @@ class UnicontaClient:
         self._debtors_by_vat = by_vat
         self._debtors_loaded = True
 
-        print(
-            f"[DEBUG] _load_debtors_cache: loaded {len(self._debtors_rows)} debtors, "
-            f"{len(self._debtors_by_vat)} distinct ID/VAT keys (VatNumber/CompanyRegNo/Account)."
-        )
+        #print(
+        #    f"[DEBUG] _load_debtors_cache: loaded {len(self._debtors_rows)} debtors, "
+         #   f"{len(self._debtors_by_vat)} distinct ID/VAT keys (VatNumber/CompanyRegNo/Account)."
+        #)
 
+    @staticmethod
+    def _normalize_vat(value: str | None) -> str:
+        """
+        Normalize VAT/ID for matching: remove spaces, dots, dashes, uppercase.
+        This is used for:
+          - VatNumber
+          - CompanyRegNo / CVR
+          - Account (when it holds CVR-like values)
+        """
+        if value is None:
+            return ""
+
+        s = str(value).strip()
+        s = s.replace(" ", "").replace(".", "").replace("-", "")
+        return s.upper()
 
     @staticmethod
     def _candidate_vat_values(customer) -> list[str]:
@@ -224,22 +205,14 @@ class UnicontaClient:
 
         return list(candidates)
 
-    # ------------------------------------------------------------------
-    # Debtor lookup (ID/VAT-only matching)
-    # ------------------------------------------------------------------
-
-    def find_deptor(self, invoice, failedlist):
-
+    def find_deptor_from_invoice(self, invoice):
         if not invoice.customer or invoice.customer.vatID is None:
-            print("[DEBUG] find_deptor: missing customer or VAT, skipping.")
             return None
 
-        # Make sure cache is available
         self._load_debtors_cache()
 
         candidates = self._candidate_vat_values(invoice.customer)
         if not candidates:
-            print(f"[DEBUG] find_deptor: no VAT candidates for customer {invoice.customer.name}")
             return None
 
         norm_candidates = [self._normalize_vat(c) for c in candidates if c]
@@ -250,29 +223,16 @@ class UnicontaClient:
                 continue
             matches = self._debtors_by_vat.get(nc)
             if matches:
-                first = matches[0]
-                print(
-                    f"[DEBUG] find_deptor: CACHE MATCH by ID/VAT for customer '{invoice.customer.name}' "
-                    f"normID='{nc}' → Account={first.get('Account')} Name={first.get('Name')}"
-                )
                 matchesFound = matches
                 break
 
         if matchesFound is None or len(matchesFound) < 1:
-            print(
-                f"[DEBUG] create_invoice: no debtor found for "
-                f"{invoice.customer.name} (VAT={invoice.customer.vatID}, "
-                f"Country={invoice.customer.countryCode})"
-            )
-            failedlist.append(invoice)
+            recon_data.failedList.append(invoice)
             return None
 
         deptor = matchesFound[0]
         return deptor
 
-    # ------------------------------------------------------------------
-    # Invoice creation
-    # ------------------------------------------------------------------
     def find_orderNumber(self, debtor, invoice):
         OrderNumber = None
 
@@ -310,18 +270,19 @@ class UnicontaClient:
         else:
             OrderNumber = str(next(iter(data)).get("OrderNumber") or next(iter(data)).get("invoiceNumber"))
         if OrderNumber == "Invalid" or OrderNumber == None:
-            print("order number not found")
+            pass
+            #print("order number not found")
         return OrderNumber
 
     def create_invoice(self, invoice: CustomerInvoice) -> str:
 
-        deptor = self.find_deptor(invoice, recon_data.failedList)
+        deptor = self.find_deptor_from_invoice(invoice)
         if deptor is None:
             return None
 
         OrderNumber = self.find_orderNumber(deptor, invoice)
 
-        print(f"Created ERP invoice {OrderNumber} for customer {invoice.customer.name}")
+        #print(f"Created ERP invoice {OrderNumber} for customer {invoice.customer.name}")
 
         line_url = f"{self.base_url}/Crud/InsertList/DebtorOrderLineClient"
 
@@ -337,7 +298,7 @@ class UnicontaClient:
                     #"Price": float(catline.UnitPrice or 0),
                 })
 
-        print("Sending lines to Uniconta:", all_lines[:3], "...")
+        #print("Sending lines to Uniconta:", all_lines[:3], "...")
 
         resp = self.session.post(line_url, json=all_lines)
         if not resp.ok:
@@ -346,3 +307,38 @@ class UnicontaClient:
             )
 
         return OrderNumber
+
+
+def createUnicontaOrdersWithLines(uniconta_client):
+    # Actually create invoices in Uniconta
+    for customerInvoice in recon_data.invoiceCustomerdict.values():
+        before = len(recon_data.failedList)
+        uniconta_client.create_invoice(customerInvoice,)
+        after = len(recon_data.failedList)
+
+        # Sum invoice amount: ren Amount (CloudFactory-beløb)
+        inv_amount = 0.0
+        for category in customerInvoice.categories.values():
+            for line in category.lines:
+                try:
+                    inv_amount += float(line.Amount or 0)
+                except (TypeError, ValueError):
+                    pass
+
+        if after == before:
+            # No new failure added => this invoice was successfully posted
+            recon_data.total_amount_success += inv_amount
+
+            cust = customerInvoice.customer
+            recon_data.success_rows.append(
+                {
+                    "Customer ID": cust.id,
+                    "Customer Name": cust.name,
+                    "VAT": cust.vatID,
+                    "Country": cust.countryCode,
+                    "Total Amount (DKK)": inv_amount,
+                }
+            )
+        else:
+            # This invoice ended up in failedList
+            recon_data.total_amount_failed += inv_amount

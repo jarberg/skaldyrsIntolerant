@@ -14,11 +14,10 @@ Forudsætter:
 
 from dotenv import load_dotenv
 import sys
-from pathlib import Path
 
 # Tilpas import-stien hvis nødvendigt
 # Antager at denne fil ligger i samme "src" som uniconta.py
-from RESTclients.uniconta import UnicontaClient
+from RESTclients.Uniconta.uniconta import UnicontaClient
 
 
 def fetch_debtor_orders(adapter: UnicontaClient, your_ref: str = "API-ORDER-001"):

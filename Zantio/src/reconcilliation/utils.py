@@ -22,10 +22,10 @@ class recon_data:
     invoiceCustomerdict: dict[str, CustomerInvoice] = {}
     failedCustomerlist: dict[str, CustomerInvoice_Error] = {}
 
-    @staticmethod
-    def add_no_customerID_row(amount_val, catKey, record, name_key="", vat_key=""):
-        recon_data.total_amount_no_customerid += amount_val  # Ingen Customer Id i række kan ikke tildele til kunde
-        recon_data.no_customerid_rows.append(
+    @classmethod
+    def add_no_customerID_row(cls, amount_val, catKey, record, name_key="", vat_key=""):
+        cls.total_amount_no_customerid += amount_val  # Ingen Customer Id i række kan ikke tildele til kunde
+        cls.no_customerid_rows.append(
             {
                 "Category": catKey,
                 "InvoicePeriodStart": record.get("Start Date", ""),
