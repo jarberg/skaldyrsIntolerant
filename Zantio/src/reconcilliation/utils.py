@@ -23,7 +23,47 @@ class recon_data:
     failedCustomerlist: dict[str, CustomerInvoice_Error] = {}
 
     @classmethod
+    def add_failed_customer(cls, catKey, record):
+
+        try:
+            amount_val = float(record.get("Amount", 0) or 0)
+        except (TypeError, ValueError):
+            amount_val = 0.0
+
+        cls.total_amount_no_customerid += amount_val
+        cls.no_customerid_rows.append(
+            {
+                "Category": catKey,
+                "InvoicePeriodStart": record.get("Start Date", ""),
+                "InvoicePeriodEnd": record.get("End Date", ""),
+                "Item Name": record.get("Item Name", ""),
+                "ItemNo": record.get("ItemNo", ""),
+                "Quantity": record.get("Quantity", ""),
+                "Unit Price": record.get("Unit Price", ""),
+                "Amount": amount_val,
+                "Currency": record.get("Currency", ""),
+                "Customer Id": "",
+                "Customer Name (from Excel)": "",
+                "VAT (from Excel)": "",
+                "Note": "No customer id column in billing file",
+            }
+        )
+
+    @classmethod
+    def add_to_total_amount(cls, record):
+        try:
+            amount_val = float(record.get("Amount", 0) or 0)
+        except (TypeError, ValueError):
+            amount_val = 0.0
+        recon_data.total_amount_all += amount_val
+
+    @classmethod
     def add_no_customerID_row(cls, amount_val, catKey, record, name_key="", vat_key=""):
+        try:
+            amount_val = float(record.get("Amount", 0) or 0)
+        except (TypeError, ValueError):
+            amount_val = 0.0
+
         cls.total_amount_no_customerid += amount_val  # Ingen Customer Id i række kan ikke tildele til kunde
         cls.no_customerid_rows.append(
             {
@@ -275,10 +315,10 @@ def setupStreamletPage(foundCatKeyDict):
     # --- Reconciliation summary (console) ---
     print("=== RECONCILIATION SUMMARY (ex. VAT) ===")
     print(f"Total CloudFactory per-customer amount processed         : {recon_data.total_amount_all+recon_data.total_amount_no_customerid:,.2f} DKK")
-    print(f"  → Mapped to existing Uniconta debtors                  : {recon_data.total_amount_success:,.2f} DKK")
-    print(f"  → No matching debtor in Uniconta (skipped)             : {recon_data.total_amount_failed:,.2f} DKK")
-    print(f"  → No matching CloudFactory customer (failed mapping)   : {total_failed_cf:,.2f} DKK")
-    print(f"  → Lines with NO customer id in billing file            : {recon_data.total_amount_no_customerid:,.2f} DKK")
+    print(f"  -> Mapped to existing Uniconta debtors                  : {recon_data.total_amount_success:,.2f} DKK")
+    print(f"  -> No matching debtor in Uniconta (skipped)             : {recon_data.total_amount_failed:,.2f} DKK")
+    print(f"  -> No matching CloudFactory customer (failed mapping)   : {total_failed_cf:,.2f} DKK")
+    print(f"  -> Lines with NO customer id in billing file            : {recon_data.total_amount_no_customerid:,.2f} DKK")
     print(
         "Check (success + failed_debtors + failed_cf_customers)   : "
         f"{(recon_data.total_amount_success + recon_data.total_amount_failed + total_failed_cf):,.2f} DKK"

@@ -168,12 +168,14 @@ class UnicontaClient:
 
     def find_deptor_from_invoice(self, invoice):
         if not invoice.customer or invoice.customer.vatID is None:
+            recon_data.failedList.append(invoice)
             return None
 
         self._load_debtors_cache()
 
         candidates = self._candidate_vat_values(invoice.customer)
         if not candidates:
+            recon_data.failedList.append(invoice)
             return None
 
         norm_candidates = [self._normalize_vat(c) for c in candidates if c]
@@ -268,5 +270,4 @@ def createUnicontaOrdersWithLines(uniconta_client):
         before = len(recon_data.failedList)
         uniconta_client.createOrFetchOrder_invoice(customerInvoice,)
         after = len(recon_data.failedList)
-
         report_successOrFailure(customerInvoice, before==after)
