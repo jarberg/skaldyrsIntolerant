@@ -1,20 +1,17 @@
-from io import BytesIO
-from pathlib import Path
-
 import requests
 import os
 
-from RESTclients.dataModels import Customer, CloudFactoryInvoiceCategory, CloudFactoryInvoice
 from datetime import date, datetime
 from typing import Dict, Any, List
+
+from RESTclients.dataModels import Customer, CloudFactoryInvoiceCategory, CloudFactoryInvoice, \
+    CustomerInvoiceCategoryLine_exclaimer, CustomerInvoiceCategoryLine_keepit
 
 
 CLOUDFACTORY_EXCHANGE = os.getenv("CLOUDFACTORY_EXCHANGE")
 CLOUDFACTORY_PARTNER_ID = os.getenv("CLOUDFACTORY_PARTNER_ID")
-
 CLOUDFACTORY_API_TOKEN = ""
 CLOUDFACTORY_BASE_URL = "https://portal.api.cloudfactory.dk/"
-
 
 if not CLOUDFACTORY_EXCHANGE or not CLOUDFACTORY_PARTNER_ID:
     raise RuntimeError("Missing exchange API credentials. Set CLOUDFATORY_EXCHANGE and CLOUDFATORY_PARTNER_ID.")
@@ -100,7 +97,7 @@ class CloudFactoryClient:
 
         return invoice_list
 
-    def fetch_latest_invoices(self) -> list[CloudFactoryInvoice]:
+    def fetch_latest_invoices(self) -> (list[CloudFactoryInvoice], bool):
         """
         Returns only the invoices with the latest invoice_date.
         Example:
@@ -108,7 +105,7 @@ class CloudFactoryClient:
         """
         invoices = self.list_invoices()
         if not invoices:
-            return []
+            return [], False
 
         # Determine the latest invoice date
         latest_date = max(inv.endDate for inv in invoices)
@@ -117,19 +114,9 @@ class CloudFactoryClient:
             if inv.endDate == latest_date
         ]
         if not ret_list:
-            return []
+            return [], False
 
-        for invoice in ret_list:
-            response = requests.get(invoice.extras.get("invoicePdf"), stream=True)
-            response.raise_for_status()  # fails loudly if download fails
-
-            with open(invoice.extras.get("invoiceNo")+".pdf", "wb") as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-
-
-        return ret_list
+        return ret_list, True
 
     def list_customers(self) -> List[Customer]:
         """
@@ -214,3 +201,48 @@ class CloudFactoryClient:
         except ValueError:
             return datetime.strptime(value, "%Y-%m-%d").date()
 
+def generate_correct_product_line(catName, record):
+    if catName == "Exclaimer":
+        line = CustomerInvoiceCategoryLine_exclaimer(
+            Amount=record.get("Amount", "Failed"),
+            Currency=record.get("Currency", "Failed"),
+            ItemName=record.get("Item Name", "Failed"),
+            ItemNo=record.get("ItemNo", "Failed"),
+            LicenseAgreementType=record.get("License Agreement Type", "Failed"),
+            Offering=record.get("Offering", "Failed"),
+            ProductFamily=record.get("Product Family", "Failed"),
+            Quantity=record.get("Quantity", "Failed"),
+            UnitPrice="",
+        )
+    elif catName in [
+        "Keepit",
+        "Impossible Cloud",
+        "Acronis",
+        "Dropbox",
+        "Microsoft CSP (NCE)",
+        "SPLA",
+    ]:
+        line = CustomerInvoiceCategoryLine_keepit(
+            Amount=record.get("Amount", "Failed"),
+            Currency=record.get("Currency", "Failed"),
+            ItemName=record.get("Item Name", "Failed"),
+            ItemNo=record.get("ItemNo", "Failed"),
+            LicenseAgreementType=record.get("License Agreement Type", "Failed"),
+            Offering=record.get("Offering", "Failed"),
+            ProductFamily=record.get("Product Family", "Failed"),
+            Quantity=record.get("Quantity", "Failed"),
+            UnitPrice="",
+        )
+    else:
+        line = CustomerInvoiceCategoryLine_keepit(
+            Amount=record.get("Amount", "Failed"),
+            Currency=record.get("Currency", "Failed"),
+            ItemName=record.get("Item Name", "Failed"),
+            ItemNo=record.get("ItemNo", "Failed"),
+            LicenseAgreementType=record.get("License Agreement Type", "Failed"),
+            Offering=record.get("Offering", "Failed"),
+            ProductFamily=record.get("Product Family", "Failed"),
+            Quantity=record.get("Quantity", "Failed"),
+            UnitPrice="",
+        )
+    return line

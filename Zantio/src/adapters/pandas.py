@@ -3,7 +3,7 @@ import pandas as pd
 from dataclasses import is_dataclass, fields
 from typing import Any
 
-from RESTclients import cloudfactory as cf
+from RESTclients.CloudFactory import cloudfactory as cf
 
 
 def flatten_dataclass(obj, parent_key: str = "", sep: str = "_") -> dict:

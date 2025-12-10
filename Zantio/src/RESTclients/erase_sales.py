@@ -14,14 +14,13 @@ Forudsætter:
 
 from dotenv import load_dotenv
 import sys
-from pathlib import Path
 
 # Tilpas import-stien hvis nødvendigt
 # Antager at denne fil ligger i samme "src" som uniconta.py
-from RESTclients.uniconta import UnicontaAdapter
+from RESTclients.Uniconta.uniconta import UnicontaClient
 
 
-def fetch_debtor_orders(adapter: UnicontaAdapter, your_ref: str = "API-ORDER-001"):
+def fetch_debtor_orders(adapter: UnicontaClient, your_ref: str = "API-ORDER-001"):
     """
     Henter alle DebtorOrderClient-ordrer og filtrerer dem i Python på YourRef.
     Vi bruger samme Query/Get-format som til DebtorClient i din eksisterende kode.
@@ -55,7 +54,7 @@ def fetch_debtor_orders(adapter: UnicontaAdapter, your_ref: str = "API-ORDER-001
     return filtered
 
 
-def delete_debtor_orders(adapter: UnicontaAdapter, orders: list[dict]):
+def delete_debtor_orders(adapter: UnicontaClient, orders: list[dict]):
     """
     Sletter en liste af DebtorOrderClient-ordrer via:
       DELETE /Crud/DeleteList/DebtorOrderClient
@@ -92,7 +91,7 @@ def main(dry_run: bool = True, your_ref: str = "API-ORDER-001"):
     load_dotenv()
 
     print("🔐 Logger ind i Uniconta...")
-    adapter = UnicontaAdapter()
+    adapter = UnicontaClient()
 
     print(f"🔎 Søger efter DebtorOrderClient-ordrer med YourRef = '{your_ref}'...")
     orders = fetch_debtor_orders(adapter, your_ref=your_ref)
@@ -128,5 +127,5 @@ if __name__ == "__main__":
     #   python delete_uniconta_orders.py          → kører som dry-run (ingen sletning)
     #   python delete_uniconta_orders.py live     → sletter faktisk
     arg = sys.argv[1] if len(sys.argv) > 1 else ""
-    dry = not (arg.lower() in ["live", "delete", "prod"])
+    dry =False#not (arg.lower() in ["live", "delete", "prod"])
     main(dry_run=dry, your_ref="API-ORDER-001")
