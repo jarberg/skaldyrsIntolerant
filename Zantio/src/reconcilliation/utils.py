@@ -246,10 +246,10 @@ def setupStreamletPage(foundCatKeyDict):
     # --- Reconciliation summary (console) ---
     print("=== RECONCILIATION SUMMARY (ex. VAT) ===")
     print(f"Total CloudFactory per-customer amount processed         : {recon_data.total_amount_all+recon_data.total_amount_no_customerid:,.2f} DKK")
-    print(f"  → Mapped to existing Uniconta debtors                  : {recon_data.total_amount_success:,.2f} DKK")
-    print(f"  → No matching debtor in Uniconta (skipped)             : {recon_data.total_amount_failed:,.2f} DKK")
-    print(f"  → No matching CloudFactory customer (failed mapping)   : {total_failed_cf:,.2f} DKK")
-    print(f"  → Lines with NO customer id in billing file            : {recon_data.total_amount_no_customerid:,.2f} DKK")
+    print(f"Mapped to existing Uniconta debtors                  : {recon_data.total_amount_success:,.2f} DKK")
+    print(f"No matching debtor in Uniconta (skipped)             : {recon_data.total_amount_failed:,.2f} DKK")
+    print(f"No matching CloudFactory customer (failed mapping)   : {total_failed_cf:,.2f} DKK")
+    print(f"Lines with NO customer id in billing file            : {recon_data.total_amount_no_customerid:,.2f} DKK")
     print(
         "Check (success + failed_debtors + failed_cf_customers)   : "
         f"{(recon_data.total_amount_success + recon_data.total_amount_failed + total_failed_cf):,.2f} DKK"

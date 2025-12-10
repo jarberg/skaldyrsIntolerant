@@ -32,7 +32,8 @@ import streamlit as st
 # Sti-opsætning
 # ---------------------------------------------------------
 APP_DIR = Path(__file__).resolve().parent
-OUTPUT_DIR = APP_DIR / "output"
+OUTPUT_DIR = APP_DIR / "reconcilliation" / "output"
+
 
 SUMMARY_PATH = OUTPUT_DIR / "reconciliation_summary.json"
 
