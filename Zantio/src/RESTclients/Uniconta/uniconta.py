@@ -67,7 +67,7 @@ class UnicontaClient:
 
         #print("[DEBUG] _load_debtors_cache: loading all DebtorClient rows from Uniconta...")
 
-        url = f"{self.base_url}/Query/Get/DebtorClient"
+        url = f"{self.base_url}Query/Get/DebtorClient"
 
         payload = [
             {
@@ -209,13 +209,13 @@ class UnicontaClient:
             }
         ]
 
-        url = f"{self.base_url}/Query/Get/DebtorOrderClient"
+        url = f"{self.base_url}Query/Get/DebtorOrderClient"
         resp = self.session.post(url, json=payload)
         if not resp.ok:
             raise RuntimeError(f"ERP create_invoice failed: {resp.status_code} {resp.text}")
         data = resp.json()
         if len(data) == 0:
-            url = f"{self.base_url}/Crud/Insert/DebtorOrderClient"
+            url = f"{self.base_url}Crud/Insert/DebtorOrderClient"
             payload = {
                 "Account": debtor.get("Account"),
                 "Account Name": debtor.get("Account Name"),
@@ -242,7 +242,7 @@ class UnicontaClient:
             return None
 
         OrderNumber = self.find_orderNumber(deptor, invoice)
-        line_url = f"{self.base_url}/Crud/InsertList/DebtorOrderLineClient"
+        line_url = f"{self.base_url}Crud/InsertList/DebtorOrderLineClient"
 
         all_lines = []
         for category in invoice.categories.values():
