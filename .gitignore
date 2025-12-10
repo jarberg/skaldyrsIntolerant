@@ -11,3 +11,5 @@ Zantio/src/122785.pdf
 Zantio/src/RESTclients/Uniconta/__pycache__/uniconta.cpython-314.pyc
 *__pycache__*
 *.csv
+Zantio/src/reconcilliation/output/reconciliation_summary.json
+*.iml
