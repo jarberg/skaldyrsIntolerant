@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import date
-from typing import  List, Optional, Dict, Any
+from typing import  Optional, Dict, Any
 
 @dataclass
 class PartnerInvoice:
@@ -44,31 +44,19 @@ class Customer:
 
 @dataclass
 class CustomerInvoiceCategoryLine_base:
-    Amount: str
+    ProductFamily: str
+    ItemName: str
+    ItemNo: int
+    CustomerName: str
+    Amount: float
+    Units: str
     Currency: str
     ItemName: str
-    Quantity: str
-    UnitPrice:str
+    Quantity: float
+    UnitPrice: float
 
-@dataclass
-class CustomerInvoiceCategoryLine_exclaimer(CustomerInvoiceCategoryLine_base):
-    ItemNo: str
-    LicenseAgreementType: str
-    Offering: str
-    ProductFamily: str
-
-@dataclass
-class CustomerInvoiceCategoryLine_keepit(CustomerInvoiceCategoryLine_base):
-    ItemNo: str
-    LicenseAgreementType: str
-    Offering: str
-    ProductFamily: str
-
-    def __iter__(self):
-        for key, value in self.__dict__.items():
-            if key not in []:
-                yield key, value
-
+    def __str__(self) -> str:
+        return f"{self.CustomerName} - {self.ItemName} ({self.Quantity})"
 
 @dataclass
 class CustomerInvoiceCategory:

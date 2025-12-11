@@ -1,9 +1,10 @@
 import os
+from typing import Optional, Dict, Any
 
 import requests
 
 from RESTclients.dataModels import CustomerInvoice
-from reconcilliation.utils import recon_data, report_successOrFailure
+from reconcilliation.utils import recon_data, report_success_or_failure
 
 class UnicontaClient:
 
@@ -52,9 +53,21 @@ class UnicontaClient:
 
         print("Logged in to Uniconta")
 
+    def _get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Any:
+        url = f"{self.base_url}{path}"
+        resp = self.session.get(url, params=params)
+        resp.raise_for_status()
+        return resp.json()
+
+    def _post(self, path: str, json: Any, params: Optional[Dict[str, Any]] = None) -> Any:
+        url = f"{self.base_url}{path}"
+        resp = self.session.post(url, json=json, params=params)
+        resp.raise_for_status()
+        return resp
+
     def _ensure_login(self):
         if not self.token:
-            self.login()
+            self._login()
 
     def _load_debtors_cache(self):
         """
@@ -168,14 +181,14 @@ class UnicontaClient:
 
     def find_deptor_from_invoice(self, invoice):
         if not invoice.customer or invoice.customer.vatID is None:
-            report_successOrFailure(invoice, True)
+            report_success_or_failure(invoice, False)
             return None
 
         self._load_debtors_cache()
 
         candidates = self._candidate_vat_values(invoice.customer)
         if not candidates:
-            report_successOrFailure(invoice, True)
+            report_success_or_failure(invoice, False)
             return None
 
         norm_candidates = [self._normalize_vat(c) for c in candidates if c]
@@ -190,7 +203,7 @@ class UnicontaClient:
                 break
 
         if matchesFound is None or len(matchesFound) < 1:
-            report_successOrFailure(invoice, True)
+            report_success_or_failure(invoice, False)
             return None
 
         deptor = matchesFound[0]
@@ -202,12 +215,9 @@ class UnicontaClient:
         accountname = debtor.get("Account", "None")
         payload = [
             {
-                "PropertyName": "Account",
-                "FilterValue": accountname,
-                "Skip": 0,
-                "Take": 0,
-                "OrderBy": "true",
-                "OrderByDescending": "false",
+                "PropertyName": "Account","FilterValue": accountname,
+                "Skip": 0,"Take": 0,
+                "OrderBy": "true","OrderByDescending": "false",
             }
         ]
 
@@ -244,25 +254,18 @@ class UnicontaClient:
             return "Could not find deptor for invoice"
 
         OrderNumber = self.find_orderNumber(deptor, invoice)
-        line_url = f"{self.base_url}Crud/InsertList/DebtorOrderLineClient"
-
         all_lines = []
         for category in invoice.categories.values():
             for catline in category.lines:
                 all_lines.append({
                     "OrderNumber": OrderNumber,
-                    "Item": "CFTEST",
+                    "Item": catline.ItemNo,
                     "Text": str(catline.ItemName),
-                    "Qty": float(catline.Quantity or 0),
-                    "Total" : float(catline.Amount or 0)
+                    "Currency": catline.Currency,
+                    "Qty": catline.Quantity,
+                    "Total" : catline.Amount
                 })
-        resp = self.session.post(line_url, json=all_lines)
-        if not resp.ok:
-            raise RuntimeError(
-                f"ERP insert DebtorOrderLineClient failed (lines): {resp.status_code} {resp.text}"
-            )
-        report_successOrFailure(invoice, False)
 
-        return None
-
+        response = self._post("Crud/InsertList/DebtorOrderLineClient", json=all_lines)
+        report_success_or_failure(invoice, response.ok)
 

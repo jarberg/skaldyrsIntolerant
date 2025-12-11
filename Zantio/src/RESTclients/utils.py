@@ -1,4 +1,4 @@
-from RESTclients.CloudFactory.cloudfactory import generate_correct_product_line
+from RESTclients.Adapters.CloudFactoryToPython import generate_correct_product_line
 from RESTclients.dataModels import CustomerInvoice_Error, CustomerInvoice, CustomerInvoiceCategory
 from adapters.excel import convert_excel_to_dict, get_id_keys
 from reconcilliation.utils import recon_data
@@ -15,8 +15,8 @@ def generate_customer_invoice(
 
     if (
         previousCustomerid != customerid
-        and (customerid not in recon_data.invoiceCustomerdict.keys())
-        and (customerid not in recon_data.failedCustomerlist.keys())
+        and (customerid not in recon_data.invoice_customer_dict.keys())
+        and (customerid not in recon_data.failed_customer_list.keys())
     ):
         potential_clients = list(
             (
@@ -35,7 +35,7 @@ def generate_customer_invoice(
                     + vatID,
                     categories={},
                 )
-                recon_data.failedCustomerlist[customerid] = customerInvoice
+                recon_data.failed_customer_list[customerid] = customerInvoice
             case 1:
                 customerInvoice = CustomerInvoice(
                     customer=potential_clients[0],
@@ -43,7 +43,7 @@ def generate_customer_invoice(
                     period_end=record.get("End Date", "ERROR"),
                     categories={},
                 )
-                recon_data.invoiceCustomerdict[customerid] = customerInvoice
+                recon_data.invoice_customer_dict[customerid] = customerInvoice
             case _:
                 customerInvoice = CustomerInvoice_Error(
                     customer=None,
@@ -53,12 +53,12 @@ def generate_customer_invoice(
                     + vatID,
                     categories={},
                 )
-                recon_data.failedCustomerlist[customerid] = customerInvoice
+                recon_data.failed_customer_list[customerid] = customerInvoice
     else:
-        if customerid in recon_data.failedCustomerlist.keys():
-            customerInvoice = recon_data.failedCustomerlist.get(customerid)
+        if customerid in recon_data.failed_customer_list.keys():
+            customerInvoice = recon_data.failed_customer_list.get(customerid)
         else:
-            customerInvoice = recon_data.invoiceCustomerdict.get(customerid)
+            customerInvoice = recon_data.invoice_customer_dict.get(customerid)
 
     if not customerInvoice:
         customerInvoice = CustomerInvoice_Error(
@@ -72,14 +72,23 @@ def generate_customer_invoice(
             + "",
             categories={},
         )
-        recon_data.failedCustomerlist[customerid] = customerInvoice
+        recon_data.failed_customer_list[customerid] = customerInvoice
 
     return customerInvoice
 
+def generate_invoice_category(invoice, catName):
+    category = invoice.categories.get(catName, None)
+    if not category:
+        category = CustomerInvoiceCategory(
+            name=catName,
+            lines=[],
+        )
+        invoice.categories[catName] = category
+    return category
 
-def generate_invoice(cloudFac_client, uniconta_client, invoices, foundCatKeyDict):
+def generate_invoices_for_uniconta(cloudFac_client, uniconta_client, invoices, foundCatKeyDict):
     errors = 0
-
+    #preload excel data structures
     for invoice in invoices:
         for catKey in invoice.categories.keys():
             foundCatKeyDict.add(catKey)
@@ -87,50 +96,57 @@ def generate_invoice(cloudFac_client, uniconta_client, invoices, foundCatKeyDict
             excel_bytes = cloudFac_client.fetch_billing_excel(
                 invoice.categories.get(catKey).excelLink
             )
-            data_dict = convert_excel_to_dict(excel_bytes)
-
-            id_key, vat_key, name_key, success = get_id_keys(data_dict, catKey)
+            invoice_rows = convert_excel_to_dict(excel_bytes)
+            invoice.categories.get(catKey).excelLink = invoice_rows
+            id_key, vat_key, name_key, success = get_id_keys(invoice_rows)
             if not success:
+                for record in invoice_rows:
+                    recon_data.add_failed_customer(catKey, record)
+                invoice.categories[catKey] = None
                 errors+=1
                 continue
 
-            previousCustomerid = None
+            invoice.categories.get(catKey).idKey = id_key
+            invoice.categories.get(catKey).vatKey = vat_key
+            invoice.categories.get(catKey).nameKey = name_key
 
-            for record in data_dict:
-                raw_id = record.get(id_key)
-                if not raw_id:
-                    recon_data.add_no_customerID_row(catKey, record, name_key, vat_key)
-                    errors += 1
-                    continue
+    #remove all categories that failed to get correct keys for important headers
+    for invoice in invoices:
+        invoice.categories = {k: v for k, v in invoice.categories.items() if v is not None}
 
-                customerid = (
-                    str(raw_id).replace("{", "").replace("}", "").lower()
-                )
+    for invoice in invoices:
+        for catKey in invoice.categories.keys():
+            invoice_rows = invoice.categories.get(catKey).excelLink
+            id_key=invoice.categories.get(catKey).idKey
+            vat_key=invoice.categories.get(catKey).vatKey
+            name_key=invoice.categories.get(catKey).nameKey
 
-                vatID = record.get(vat_key, "NULL") if vat_key else "NULL"
-                name = record.get(name_key, "NULL")
+            previous_customer_id = None
+
+            for row in invoice_rows:
+                raw_id = row.get(id_key)
+
+                customer_id = (str(raw_id).replace("{", "").replace("}", "").lower())
+                vatID = row.get(vat_key, "NULL") if vat_key else "NULL"
+                name = row.get(name_key, "NULL")
 
                 # Build / reuse the CustomerInvoice / CustomerInvoice_Error
-                customerinvoice = generate_customer_invoice(
-                    previousCustomerid,
-                    customerid,
+                customer_invoice = generate_customer_invoice(
+                    previous_customer_id,
+                    customer_id,
                     vatID,
                     name,
-                    record,
+                    row,
                     uniconta_client
                 )
 
-                category = customerinvoice.categories.get(catKey, None)
-                if not category:
-                    category = CustomerInvoiceCategory(
-                        name=catKey,
-                        lines=[],
-                    )
-                    customerinvoice.categories[catKey] = category
-
-                line = generate_correct_product_line(catKey, record)
+                category = generate_invoice_category(customer_invoice, catKey)
+                line = generate_correct_product_line(catKey, row)
                 category.lines.append(line)
-                previousCustomerid = customerid
 
-                recon_data.add_to_total_amount(record)
+                previous_customer_id = customer_id
+
+                recon_data.add_to_total_amount(row)
+
     return errors
+

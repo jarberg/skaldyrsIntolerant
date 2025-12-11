@@ -4,50 +4,33 @@ import json
 from pathlib import Path
 
 from RESTclients.dataModels import CustomerInvoice, CustomerInvoice_Error
+from adapters.excel import convert_row_to_dict
 
 BASE_DIR = Path(__file__).resolve().parent
 OUTPUT_DIR = BASE_DIR / "output"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
 
 class recon_data:
     total_failed_cf = None
     total_amount_all = 0.0
     total_amount_success = 0.0
     total_amount_failed = 0.0
-    total_amount_no_customerid = 0.0
+    total_amount_no_customer_id = 0.0
     success_rows = []
-    no_customerid_rows = []
+    no_customer_id_rows = []
     failedList = []
-    invoiceCustomerdict: dict[str, CustomerInvoice] = {}
-    failedCustomerlist: dict[str, CustomerInvoice_Error] = {}
+    invoice_customer_dict: dict[str, CustomerInvoice] = {}
+    failed_customer_list: dict[str, CustomerInvoice_Error] = {}
 
     @classmethod
     def add_failed_customer(cls, catKey, record):
-
         try:
             amount_val = float(record.get("Amount", 0) or 0)
         except (TypeError, ValueError):
             amount_val = 0.0
 
-        cls.total_amount_no_customerid += amount_val
-        cls.no_customerid_rows.append(
-            {
-                "Category": catKey,
-                "InvoicePeriodStart": record.get("Start Date", ""),
-                "InvoicePeriodEnd": record.get("End Date", ""),
-                "Item Name": record.get("Item Name", ""),
-                "ItemNo": record.get("ItemNo", ""),
-                "Quantity": record.get("Quantity", ""),
-                "Unit Price": record.get("Unit Price", ""),
-                "Amount": amount_val,
-                "Currency": record.get("Currency", ""),
-                "Customer Id": "",
-                "Customer Name (from Excel)": "",
-                "VAT (from Excel)": "",
-                "Note": "No customer id column in billing file",
-            }
-        )
+        cls.total_amount_no_customer_id += amount_val
+        cls.no_customer_id_rows.append(convert_row_to_dict(catKey, record))
 
     @classmethod
     def add_to_total_amount(cls, record):
@@ -58,16 +41,16 @@ class recon_data:
         recon_data.total_amount_all += amount_val
 
     @classmethod
-    def add_no_customerID_row(cls, amount_val, catKey, record, name_key="", vat_key=""):
+    def add_no_customer_id_row(cls, amount_val, cat_key, record, name_key="", vat_key=""):
         try:
             amount_val = float(record.get("Amount", 0) or 0)
         except (TypeError, ValueError):
             amount_val = 0.0
 
-        cls.total_amount_no_customerid += amount_val  # Ingen Customer Id i række kan ikke tildele til kunde
-        cls.no_customerid_rows.append(
+        cls.total_amount_no_customer_id += amount_val  # Ingen Customer Id i række kan ikke tildele til kunde
+        cls.no_customer_id_rows.append(
             {
-                "Category": catKey,
+                "Category": cat_key,
                 "InvoicePeriodStart": record.get("Start Date", ""),
                 "InvoicePeriodEnd": record.get("End Date", ""),
                 "Item Name": record.get("Item Name", ""),
@@ -83,7 +66,7 @@ class recon_data:
             }
         )
 
-def report_successOrFailure(invoice, failure):
+def report_success_or_failure(invoice, success):
     # Sum invoice amount: ren Amount (CloudFactory-beløb)
     inv_amount = 0.0
     for category in invoice.categories.values():
@@ -93,11 +76,12 @@ def report_successOrFailure(invoice, failure):
             except (TypeError, ValueError):
                 pass
 
-    if failure:
-        recon_data.failedList.append(invoice)
+    if success:
         # No new failure added => this invoice was successfully posted
         recon_data.total_amount_success += inv_amount
-
+    else:
+        # This invoice ended up in failedList
+        recon_data.failedList.append(invoice)
         cust = invoice.customer
         recon_data.success_rows.append(
             {
@@ -108,8 +92,7 @@ def report_successOrFailure(invoice, failure):
                 "Total Amount (DKK)": inv_amount,
             }
         )
-    else:
-        # This invoice ended up in failedList
+
         recon_data.total_amount_failed += inv_amount
 
 
@@ -129,7 +112,7 @@ def compute_line_total(line) -> float:
     except Exception:
         return 0.0
 
-def export_failed_customers_csv(failedCustomerlist, output_path: Path) -> float:
+def export_failed_customers_csv(failed_customer_list, output_path: Path) -> float:
     """
     CloudFactory-rækker der IKKE kunne matches til en CloudFactory-kunde.
     Beløb beregnes som Amount (CloudFactory-beløb).
@@ -138,7 +121,7 @@ def export_failed_customers_csv(failedCustomerlist, output_path: Path) -> float:
     rows = []
     total_failed = 0.0
 
-    for customerid, customer_invoice in failedCustomerlist.items():
+    for customerid, customer_invoice in failed_customer_list.items():
         reason = getattr(customer_invoice, "reason", "Unknown")
 
         total_amount = 0.0
@@ -247,7 +230,7 @@ def export_success_invoices_csv(success_rows, output_path: Path) -> float:
     print(f"Success invoices CSV exported -> {output_file.resolve()}")
     return total_success
 
-def export_no_customerid_csv(no_id_rows, output_path: Path) -> float:
+def export_no_customer_id_csv(no_id_rows, output_path: Path) -> float:
     """
     Linjer i billing-Excel uden Customer Id (enten mangler id-kolonne
     helt eller feltet er tomt). Beløb = Amount.
@@ -273,8 +256,8 @@ def export_no_customerid_csv(no_id_rows, output_path: Path) -> float:
     print(f"No-customer-id CSV exported -> {output_file.resolve()}")
     return total
 
-def print_invoices(invoiceCustomerdict):
-    for invoice in invoiceCustomerdict.values():
+def print_invoices(invoice_customer_dict):
+    for invoice in invoice_customer_dict.values():
         print(invoice.customer.name)
         for key in invoice.categories.keys():
             category = invoice.categories.get(key)
@@ -288,7 +271,7 @@ def print_invoices(invoiceCustomerdict):
                 print("         |")
         print("")
 
-def setupStreamletPage(foundCatKeyDict):
+def setupStreamletPage(found_cat_key_dict):
     # ------------------------------------------------------------------
     # Export CSVs for Streamlit / reporting
     # ------------------------------------------------------------------
@@ -298,7 +281,7 @@ def setupStreamletPage(foundCatKeyDict):
 
     # 2) CloudFactory mapping failures (failedCustomerlist)
     failed_cf_csv_path = OUTPUT_DIR / "failed_customers.csv"
-    total_failed_cf = export_failed_customers_csv(recon_data.failedCustomerlist, failed_cf_csv_path)
+    total_failed_cf = export_failed_customers_csv(recon_data.failed_customer_list, failed_cf_csv_path)
 
     # 3) Uniconta debtor failures (failedList)
     failed_debtors_csv_path = OUTPUT_DIR / "failed_debtors_uniconta.csv"
@@ -306,27 +289,27 @@ def setupStreamletPage(foundCatKeyDict):
 
     # 4) No customer id lines
     no_customerid_csv_path = OUTPUT_DIR / "no_customerid_lines.csv"
-    total_no_customerid_csv = export_no_customerid_csv(recon_data.no_customerid_rows, no_customerid_csv_path)
+    total_no_customerid_csv = export_no_customer_id_csv(recon_data.no_customer_id_rows, no_customerid_csv_path)
 
     # Debug: which categories did we see at all?
     print("\n=== CloudFactory billing categories discovered ===")
-    print(foundCatKeyDict)
+    print(found_cat_key_dict)
     print("=================================================\n")
 
     # --- Reconciliation summary (console) ---
     print("=== RECONCILIATION SUMMARY (ex. VAT) ===")
-    print(f"Total CloudFactory per-customer amount processed         : {recon_data.total_amount_all+recon_data.total_amount_no_customerid:,.2f} DKK")
+    print(f"Total CloudFactory per-customer amount processed         : {recon_data.total_amount_all+recon_data.total_amount_no_customer_id:,.2f} DKK")
     print(f"  -> Mapped to existing Uniconta debtors                  : {recon_data.total_amount_success:,.2f} DKK")
     print(f"  -> No matching debtor in Uniconta (skipped)             : {recon_data.total_amount_failed:,.2f} DKK")
     print(f"  -> No matching CloudFactory customer (failed mapping)   : {total_failed_cf:,.2f} DKK")
-    print(f"  -> Lines with NO customer id in billing file            : {recon_data.total_amount_no_customerid:,.2f} DKK")
+    print(f"  -> Lines with NO customer id in billing file            : {recon_data.total_amount_no_customer_id:,.2f} DKK")
     print(
         "Check (success + failed_debtors + failed_cf_customers)   : "
         f"{(recon_data.total_amount_success + recon_data.total_amount_failed + total_failed_cf):,.2f} DKK"
     )
     print(
         "Invoice header total (per-customer + no-id)              : "
-        f"{(recon_data.total_amount_all + recon_data.total_amount_no_customerid):,.2f} DKK"
+        f"{(recon_data.total_amount_all + recon_data.total_amount_no_customer_id):,.2f} DKK"
     )
     print("=========================================\n")
 
@@ -341,7 +324,7 @@ def setupStreamletPage(foundCatKeyDict):
         "total_success_amount": round(recon_data.total_amount_success, 2),
         "total_failed_debtors_amount": round(recon_data.total_amount_failed, 2),
         "total_failed_cloudfactory_customers_amount": round(total_failed_cf, 2),
-        "total_no_customerid_amount": round(recon_data.total_amount_no_customerid, 2),
+        "total_no_customerid_amount": round(recon_data.total_amount_no_customer_id, 2),
         "success_csv": str(success_csv_path),
         "failed_customers_csv": str(failed_cf_csv_path),
         "failed_debtors_csv": str(failed_debtors_csv_path),

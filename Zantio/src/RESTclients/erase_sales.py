@@ -103,9 +103,10 @@ def main(dry_run: bool = True, your_ref: str = "API-ORDER-001"):
     # Lille oversigt
     print("\nEksempel på de første 5 ordrer:")
     for row in orders[:5]:
+        print(row)
         print(
-            f"  OrderNumber={row.get('OrderNumber')} "
-            f"Account={row.get('Account')} "
+            f"OrderNumber={row.get('OrderNumber')} "
+            f"Account={row.get('Account')}"
             f"Name={row.get('Name')} "
             f"YourRef={row.get('YourRef')}"
         )

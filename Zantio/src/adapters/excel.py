@@ -1,8 +1,9 @@
 import io
+from wsgiref import headers
 
 from openpyxl import load_workbook
 
-from reconcilliation.utils import recon_data
+
 
 def convert_excel_to_dict(excel_bytes):
     wb = load_workbook(io.BytesIO(excel_bytes))
@@ -23,7 +24,25 @@ def convert_excel_to_dict(excel_bytes):
         )
     return row_dicts
 
-def get_id_keys(data_rows, catKey):
+def convert_row_to_dict(catKey, row):
+    ret = {
+        "Category": catKey,
+        "InvoicePeriodStart": row.get("Start Date", ""),
+        "InvoicePeriodEnd": row.get("End Date", ""),
+        "Item Name": row.get("Item Name", ""),
+        "ItemNo": row.get("ItemNo", ""),
+        "Quantity": row.get("Quantity", ""),
+        "Unit Price": row.get("Unit Price", ""),
+        "Amount": row,
+        "Currency": row.get("Currency", ""),
+        "Customer Id": "",
+        "Customer Name (from Excel)": "",
+        "VAT (from Excel)": "",
+        "Note": "No customer id column in billing file",
+    }
+    return ret
+
+def get_id_keys(data_rows):
     success = True
     id_key = None
     vat_key = None
@@ -41,7 +60,6 @@ def get_id_keys(data_rows, catKey):
         name_key = "Customer Name"
     else:
         success = False
-        for record in data_rows:
-            recon_data.add_failed_customer(catKey, record)
+
 
     return id_key, vat_key, name_key, success

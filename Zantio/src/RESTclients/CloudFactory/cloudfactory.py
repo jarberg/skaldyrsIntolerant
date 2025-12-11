@@ -4,9 +4,7 @@ import os
 from datetime import date, datetime
 from typing import Dict, Any, List
 
-from RESTclients.dataModels import Customer, CloudFactoryInvoiceCategory, CloudFactoryInvoice, \
-    CustomerInvoiceCategoryLine_exclaimer, CustomerInvoiceCategoryLine_keepit
-
+from RESTclients.dataModels import Customer, CloudFactoryInvoiceCategory, CloudFactoryInvoice
 
 CLOUDFACTORY_EXCHANGE = os.getenv("CLOUDFACTORY_EXCHANGE")
 CLOUDFACTORY_PARTNER_ID = os.getenv("CLOUDFACTORY_PARTNER_ID")
@@ -200,49 +198,3 @@ class CloudFactoryClient:
             return datetime.fromisoformat(value.replace("Z", "+00:00")).date()
         except ValueError:
             return datetime.strptime(value, "%Y-%m-%d").date()
-
-def generate_correct_product_line(catName, record):
-    if catName == "Exclaimer":
-        line = CustomerInvoiceCategoryLine_exclaimer(
-            Amount=record.get("Amount", "Failed"),
-            Currency=record.get("Currency", "Failed"),
-            ItemName=record.get("Item Name", "Failed"),
-            ItemNo=record.get("ItemNo", "Failed"),
-            LicenseAgreementType=record.get("License Agreement Type", "Failed"),
-            Offering=record.get("Offering", "Failed"),
-            ProductFamily=record.get("Product Family", "Failed"),
-            Quantity=record.get("Quantity", "Failed"),
-            UnitPrice="",
-        )
-    elif catName in [
-        "Keepit",
-        "Impossible Cloud",
-        "Acronis",
-        "Dropbox",
-        "Microsoft CSP (NCE)",
-        "SPLA",
-    ]:
-        line = CustomerInvoiceCategoryLine_keepit(
-            Amount=record.get("Amount", "Failed"),
-            Currency=record.get("Currency", "Failed"),
-            ItemName=record.get("Item Name", "Failed"),
-            ItemNo=record.get("ItemNo", "Failed"),
-            LicenseAgreementType=record.get("License Agreement Type", "Failed"),
-            Offering=record.get("Offering", "Failed"),
-            ProductFamily=record.get("Product Family", "Failed"),
-            Quantity=record.get("Quantity", "Failed"),
-            UnitPrice="",
-        )
-    else:
-        line = CustomerInvoiceCategoryLine_keepit(
-            Amount=record.get("Amount", "Failed"),
-            Currency=record.get("Currency", "Failed"),
-            ItemName=record.get("Item Name", "Failed"),
-            ItemNo=record.get("ItemNo", "Failed"),
-            LicenseAgreementType=record.get("License Agreement Type", "Failed"),
-            Offering=record.get("Offering", "Failed"),
-            ProductFamily=record.get("Product Family", "Failed"),
-            Quantity=record.get("Quantity", "Failed"),
-            UnitPrice="",
-        )
-    return line
