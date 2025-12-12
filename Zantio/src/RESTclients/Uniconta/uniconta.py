@@ -1,10 +1,10 @@
 import os
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 import requests
 
 from RESTclients.dataModels import CustomerInvoice
-from reconcilliation.utils import recon_data, report_success_or_failure
+from reconcilliation.utils import report_success_or_failure
 
 class UnicontaClient:
 
@@ -12,6 +12,7 @@ class UnicontaClient:
 
     def __init__(self) -> None:
 
+        self.company_id = None
         self.base_url = os.getenv("ERP_BASE_URL", "https://api.uniconta.com/")
         self.api_key = os.getenv("ERP_API_TOKEN")
         self._username = os.getenv("ERP_USERNAME")
@@ -64,6 +65,24 @@ class UnicontaClient:
         resp = self.session.post(url, json=json, params=params)
         resp.raise_for_status()
         return resp
+
+    def get_order_lines_by_order_number(self, order_number: str,) -> List[Dict[str, Any]]:
+        return
+        payload = [
+            {
+                "PropertyName": "OrderNumber","FilterValue": order_number,
+                "Skip": 0,"Take": 0,
+                "OrderBy": "true","OrderByDescending": "false",
+            }
+        ]
+
+        response = self._post("Query/Get/DebtorOrderLineClient", json=payload)
+        if response.ok:
+            dictlist =response.json()
+            print(order_number)
+
+
+
 
     def _ensure_login(self):
         if not self.token:
@@ -221,13 +240,10 @@ class UnicontaClient:
             }
         ]
 
-        url = f"{self.base_url}Query/Get/DebtorOrderClient"
-        resp = self.session.post(url, json=payload)
-        if not resp.ok:
-            raise RuntimeError(f"ERP create_invoice failed: {resp.status_code} {resp.text}")
+        resp = self._post("Query/Get/DebtorOrderClient", json=payload)
         data = resp.json()
+
         if len(data) == 0:
-            url = f"{self.base_url}Crud/Insert/DebtorOrderClient"
             payload = {
                 "Account": debtor.get("Account"),
                 "Account Name": debtor.get("Account Name"),
@@ -235,9 +251,11 @@ class UnicontaClient:
                 "invoice_date": invoice.period_end,
                 "Simulate": "true"
             }
-            resp = self.session.post(url, json=payload)
+            resp =  self._post("Crud/Insert/DebtorOrderClient", json=payload)
+
             if not resp.ok:
                 raise RuntimeError(f"ERP create_invoice failed: {resp.status_code} {resp.text}")
+
             data = resp.json()
             OrderNumber = str(data.get("OrderNumber") or data.get("invoiceNumber"))
         else:
@@ -245,6 +263,9 @@ class UnicontaClient:
         if OrderNumber == "Invalid" or OrderNumber == None:
             pass
             #print("order number not found")
+        else:
+            self.get_order_lines_by_order_number(OrderNumber)
+
         return OrderNumber
 
     def create_uniconta_order_with_lines(self, invoice: CustomerInvoice) -> str:
@@ -255,10 +276,19 @@ class UnicontaClient:
 
         OrderNumber = self.find_orderNumber(deptor, invoice)
         all_lines = []
-        for category in invoice.categories.values():
+
+        for key, category in invoice.categories.items():
             for catline in category.lines:
+                externnumber = "Software"
+                if "365" in catline.ItemName:
+                    externnumber = "M365 Licenses"
+                if "Azure" in key:
+                    externnumber = "Azure"
+
                 all_lines.append({
                     "OrderNumber": OrderNumber,
+                    "mlbEksterntVaregrupp": externnumber,
+                    "CustomerItemNumber": catline.ItemNo,
                     "Item": catline.ItemNo,
                     "Text": str(catline.ItemName),
                     "Currency": catline.Currency,
@@ -266,6 +296,6 @@ class UnicontaClient:
                     "Total" : catline.Amount
                 })
 
-        response = self._post("Crud/InsertList/DebtorOrderLineClient", json=all_lines)
+        response = self._post("Crud/InsertList/DebtorOrderLineClientUser", json=all_lines)
         report_success_or_failure(invoice, response.ok)
 
