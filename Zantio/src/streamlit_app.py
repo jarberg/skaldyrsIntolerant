@@ -24,7 +24,6 @@ SUMMARY_PATH = OUTPUT_DIR / "reconciliation_summary.json"
 def run_main_script():
     """Kør main.py med samme Python som Streamlit bruger."""
     script_path = APP_DIR / "main.py"
-
     if not script_path.exists():
         st.error(f"Kunne ikke finde main.py i {APP_DIR}")
         return None
@@ -59,7 +58,6 @@ def run_main_script():
             stdout="",
             stderr=tb,
         )
-
 
 
 def load_summary():

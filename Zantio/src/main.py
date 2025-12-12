@@ -14,6 +14,8 @@ from RESTclients.utils import generate_invoices_for_uniconta
 def main(*args, **kwargs):
     DRY_RUN = kwargs.get("DRY_RUN", "True").lower() == "true"
 
+    recon_data.reset()
+
     cloudFac_client = cf.CloudFactoryClient()
     uniconta_client = uc.UnicontaClient()
 

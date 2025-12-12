@@ -66,6 +66,20 @@ class recon_data:
             }
         )
 
+    @classmethod
+    def reset(cls):
+        cls.total_failed_cf = None
+        cls.total_amount_all = 0.0
+        cls.total_amount_success = 0.0
+        cls.total_amount_failed = 0.0
+        cls.total_amount_no_customer_id = 0.0
+        cls.success_rows = []
+        cls.no_customer_id_rows = []
+        cls.failedList = []
+        cls.invoice_customer_dict: dict[str, CustomerInvoice] = {}
+        cls.failed_customer_list: dict[str, CustomerInvoice_Error] = {}
+
+
 def report_success_or_failure(invoice, success):
     # Sum invoice amount: ren Amount (CloudFactory-beløb)
     inv_amount = 0.0
