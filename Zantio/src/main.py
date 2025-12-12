@@ -56,6 +56,3 @@ def main(*args, **kwargs):
 
     print(format_str_with_color("Setup StreamletPage...", "blue"))
     setupStreamletPage(foundCatKeyDict)
-
-if __name__ == "__main__":
-    main()

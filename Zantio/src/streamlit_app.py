@@ -1,30 +1,10 @@
-# streamlit_app.py
-#
-# Simpelt interface til Jeppe:
-# - Én knap: kør afstemning (main.py)
-# - Viser totals fra reconciliation_summary.json
-# - Viser tabeller for succes, fejl og linjer uden customer id
-#
-# Forventet struktur:
-#   Zantio/
-#     src/
-#       main.py
-#       streamlit_app.py
-#       output/
-#         reconciliation_summary.json
-#         success_invoices.csv
-#         failed_customers.csv
-#         failed_debtors_uniconta.csv
-#         no_customerid_lines.csv
-from dotenv import load_dotenv
-
-load_dotenv()
 
 import json
+import io
+import traceback
 import subprocess
-import sys
 from pathlib import Path
-
+from contextlib import redirect_stdout, redirect_stderr
 import pandas as pd
 import streamlit as st
 
@@ -50,16 +30,36 @@ def run_main_script():
         return None
 
     try:
-        result = subprocess.run(
-            [sys.executable, str(script_path)],
-            capture_output=True,
-            text=True,
-        )
-    except Exception as e:
-        st.error(f"Kunne ikke starte main.py: {e}")
-        return None
+        from dotenv import load_dotenv
+        load_dotenv()
 
-    return result
+        # Capture stdout/stderr
+        stdout_buf = io.StringIO()
+        stderr_buf = io.StringIO()
+
+        with redirect_stdout(stdout_buf), redirect_stderr(stderr_buf):
+            import main
+            rc = main.main()
+
+        returncode = 0 if rc in (None, 0) else int(rc)
+
+        return subprocess.CompletedProcess(
+            args=["main.main"],
+            returncode=returncode,
+            stdout=stdout_buf.getvalue(),
+            stderr=stderr_buf.getvalue(),
+        )
+
+    except Exception:
+        # Include any captured output plus traceback
+        tb = traceback.format_exc()
+        return subprocess.CompletedProcess(
+            args=["main.main"],
+            returncode=1,
+            stdout="",
+            stderr=tb,
+        )
+
 
 
 def load_summary():
