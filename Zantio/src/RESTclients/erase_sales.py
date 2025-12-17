@@ -1,38 +1,45 @@
 """
-delete_uniconta_orders.py
+erase_sales.py
 
-Sletter alle DebtorOrderClient-ordrer, der er oprettet via API'et
-med YourRef = "API-ORDER-001", ved hjælp af Uniconta Swagger-endpoints:
+Understøtter to typer oprydning i Uniconta:
 
-  - POST /Query/Get/DebtorOrderClient   (for at hente ordrer)
-  - DELETE /Crud/DeleteList/DebtorOrderClient  (for at slette dem)
+1) ORDRE-NIVEAU
+   - Finder og sletter DebtorOrderClient
+   - Filtreret på YourRef (fx "API-ORDER-001")
 
-Forudsætter:
-  - uniconta.py med UnicontaAdapter (som du allerede har)
-  - ERP_BASE_URL, ERP_API_TOKEN, ERP_USERNAME, ERP_PASSWORD i .env
+2) LINJE-NIVEAU
+   - Finder og sletter DebtorOrderLineClientUser
+   - Filtreret på ReferenceNumber (fx "API_TEST")
+
+Begge flows understøtter dry-run.
 """
 
 from dotenv import load_dotenv
 import sys
+from typing import List
 
-# Tilpas import-stien hvis nødvendigt
-# Antager at denne fil ligger i samme "src" som uniconta.py
 from RESTclients.Uniconta.uniconta import UnicontaClient
 
 
-def fetch_debtor_orders(adapter: UnicontaClient, your_ref: str = "API-ORDER-001"):
+# ------------------------------------------------------------------
+# ORDRE-NIVEAU (DebtorOrderClient)
+# ------------------------------------------------------------------
+
+def fetch_debtor_orders(
+    adapter: UnicontaClient,
+    your_ref: str,
+) -> List[dict]:
     """
-    Henter alle DebtorOrderClient-ordrer og filtrerer dem i Python på YourRef.
-    Vi bruger samme Query/Get-format som til DebtorClient i din eksisterende kode.
+    Henter alle DebtorOrderClient og filtrerer på YourRef.
     """
     url = f"{adapter.base_url}/Query/Get/DebtorOrderClient"
 
     payload = [
         {
-            "PropertyName": "Account",   # bruges blot som sorteringsfelt; FilterValue "" = hent alle
+            "PropertyName": "Account",
             "FilterValue": "",
             "Skip": 0,
-            "Take": 0,                  # 0 = hent alle rækker
+            "Take": 0,
             "OrderBy": "true",
             "OrderByDescending": "false",
         }
@@ -45,88 +52,213 @@ def fetch_debtor_orders(adapter: UnicontaClient, your_ref: str = "API-ORDER-001"
         )
 
     data = resp.json() or []
-    print(f"🔍 Fik {len(data)} DebtorOrderClient-rækker tilbage fra Uniconta.")
+    filtered = [row for row in data if row.get("YourRef") == your_ref]
 
-    # Filtrér kun de ordrer, vi selv har lavet med YourRef = 'API-ORDER-001'
-    filtered = [row for row in data if (row.get("YourRef") == your_ref)]
+    print(f"🔍 DebtorOrderClient total: {len(data)}")
+    print(f"🔎 Matcher YourRef='{your_ref}': {len(filtered)}")
 
-    print(f"🔎 Heraf matcher {len(filtered)} rækker YourRef = '{your_ref}'.")
     return filtered
 
 
-def delete_debtor_orders(adapter: UnicontaClient, orders: list[dict]):
+def delete_debtor_orders(
+    adapter: UnicontaClient,
+    orders: List[dict],
+):
     """
-    Sletter en liste af DebtorOrderClient-ordrer via:
-      DELETE /Crud/DeleteList/DebtorOrderClient
-
-    Vi sender hele order-objekterne, som vi fik dem fra Query/Get.
-    Uniconta bruger de nødvendige nøgler (f.eks. RowId) indefra.
+    Sletter DebtorOrderClient-ordrer.
     """
     if not orders:
-        print("✅ Ingen ordrer at slette – listen er tom.")
+        print("✅ Ingen ordrer at slette.")
         return
 
     url = f"{adapter.base_url}/Crud/DeleteList/DebtorOrderClient"
-
-    # OBS: DELETE med body – Swagger siger det er sådan.
     resp = adapter.session.delete(url, json=orders)
+
     if not resp.ok:
         raise RuntimeError(
             f"DeleteList/DebtorOrderClient failed: {resp.status_code} {resp.text}"
         )
 
-    print(f"🗑️  Slettede {len(orders)} DebtorOrderClient-ordrer i Uniconta.")
+    print(f"🗑️  Slettede {len(orders)} DebtorOrderClient-ordrer.")
 
 
-def main(dry_run: bool = True, your_ref: str = "API-ORDER-001"):
+# ------------------------------------------------------------------
+# LINJE-NIVEAU (DebtorOrderLineClientUser)
+# ------------------------------------------------------------------
+
+def fetch_debtor_order_lines(
+    adapter: UnicontaClient,
+    reference_number: str,
+) -> List[dict]:
     """
-    Hvis dry_run = True:
-      - Vi logger ind
-      - Finder alle ordrer med YourRef = your_ref
-      - Printer dem, men sletter IKKE
+    Henter alle DebtorOrderLineClientUser og filtrerer på ReferenceNumber.
+    """
+    url = f"{adapter.base_url}/Query/Get/DebtorOrderLineClientUser"
 
-    Hvis dry_run = False:
-      - Samme som ovenfor, men vi kalder delete_debtor_orders(...)
+    payload = [
+        {
+            "PropertyName": "OrderNumber",
+            "FilterValue": "",
+            "Skip": 0,
+            "Take": 0,
+            "OrderBy": "true",
+            "OrderByDescending": "false",
+        }
+    ]
+
+    resp = adapter.session.post(url, json=payload)
+    if not resp.ok:
+        raise RuntimeError(
+            f"Query/Get/DebtorOrderLineClientUser failed: {resp.status_code} {resp.text}"
+        )
+
+    data = resp.json() or []
+    filtered = [
+        row for row in data
+        if row.get("ReferenceNumber") == reference_number
+    ]
+
+    print(f"🔍 DebtorOrderLineClientUser total: {len(data)}")
+    print(f"🔎 Matcher ReferenceNumber='{reference_number}': {len(filtered)}")
+
+    return filtered
+
+
+def delete_debtor_order_lines(
+    adapter: UnicontaClient,
+    lines: List[dict],
+):
+    """
+    Sletter DebtorOrderLineClientUser-linjer.
+    """
+    if not lines:
+        print("✅ Ingen linjer at slette.")
+        return
+
+    url = f"{adapter.base_url}/Crud/DeleteList/DebtorOrderLineClientUser"
+    resp = adapter.session.delete(url, json=lines)
+
+    if not resp.ok:
+        raise RuntimeError(
+            f"DeleteList/DebtorOrderLineClientUser failed: {resp.status_code} {resp.text}"
+        )
+
+    print(f"🗑️  Slettede {len(lines)} ordrelinjer.")
+
+
+# ------------------------------------------------------------------
+# MAIN
+# ------------------------------------------------------------------
+
+def main(
+    *,
+    mode: str,
+    dry_run: bool = True,
+    your_ref: str | None = None,
+    reference_number: str | None = None,
+):
+    """
+    mode:
+      - "orders" → slet DebtorOrderClient via YourRef
+      - "lines"  → slet DebtorOrderLineClientUser via ReferenceNumber
     """
     load_dotenv()
-
-    print(" Logger ind i Uniconta...")
     adapter = UnicontaClient()
 
-    print(f" Søger efter DebtorOrderClient-ordrer med YourRef = '{your_ref}'...")
-    orders = fetch_debtor_orders(adapter, your_ref=your_ref)
+    if mode == "orders":
+        if not your_ref:
+            raise ValueError("your_ref skal angives i mode='orders'")
 
-    if not orders:
-        print(" Ingen ordrer fundet med den YourRef – intet at slette.")
-        return
+        orders = fetch_debtor_orders(adapter, your_ref)
 
-    # Lille oversigt
-    print("\nEksempel på de første 5 ordrer:")
-    for row in orders[:5]:
-        print(row)
-        print(
-            f"OrderNumber={row.get('OrderNumber')} "
-            f"Account={row.get('Account')}"
-            f"Name={row.get('Name')} "
-            f"YourRef={row.get('YourRef')}"
-        )
+        if not orders:
+            print("Ingen matchende ordrer.")
+            return
 
-    if dry_run:
-        print(
-            "\n💡 DRY RUN: der bliver IKKE sendt nogen DELETE-kald.\n"
-            "Kør scriptet med dry_run=False for rent faktisk at slette."
-        )
-        return
+        print("\nEksempel (første 5):")
+        for o in orders[:5]:
+            print(
+                f"OrderNumber={o.get('OrderNumber')} "
+                f"Account={o.get('Account')} "
+                f"YourRef={o.get('YourRef')}"
+            )
 
-    # Slet for alvor
-    print("\n⚠️ ADVARSEL: Nu slettes alle ovenstående ordrer i Uniconta...")
-    delete_debtor_orders(adapter, orders)
+        if dry_run:
+            print("\n💡 DRY RUN – ingen ordrer slettes.")
+            return
 
+        print("\n⚠️ SLETTER ORDRER…")
+        delete_debtor_orders(adapter, orders)
+
+    elif mode == "lines":
+        if not reference_number:
+            raise ValueError("reference_number skal angives i mode='lines'")
+
+        lines = fetch_debtor_order_lines(adapter, reference_number)
+
+        if not lines:
+            print("Ingen matchende linjer.")
+            return
+
+        print("\nEksempel (første 5):")
+        for l in lines[:5]:
+            print(
+                f"OrderNumber={l.get('OrderNumber')} "
+                f"Item={l.get('Item')} "
+                f"ReferenceNumber={l.get('ReferenceNumber')}"
+            )
+
+        if dry_run:
+            print("\n💡 DRY RUN – ingen linjer slettes.")
+            return
+
+        print("\n⚠️ SLETTER ORDRELINJER…")
+        delete_debtor_order_lines(adapter, lines)
+
+    else:
+        raise ValueError("mode skal være 'orders' eller 'lines'")
+
+
+# ------------------------------------------------------------------
+# CLI
+# ------------------------------------------------------------------
 
 if __name__ == "__main__":
-    # Eksempel:
-    #   python delete_uniconta_orders.py          → kører som dry-run (ingen sletning)
-    #   python delete_uniconta_orders.py live     → sletter faktisk
-    arg = sys.argv[1] if len(sys.argv) > 1 else ""
-    dry =False#not (arg.lower() in ["live", "delete", "prod"])
-    main(dry_run=dry, your_ref="API-ORDER-001")
+    """
+    Eksempler:
+
+    # Dry-run ordre-sletning
+    python erase_sales.py orders API-ORDER-001
+
+    # Live ordre-sletning
+    python erase_sales.py orders API-ORDER-001 live
+
+    # Dry-run linje-sletning
+    python erase_sales.py lines API_TEST
+
+    # Live linje-sletning
+    python erase_sales.py lines API_TEST live
+    """
+
+    if len(sys.argv) < 3:
+        print("Usage: erase_sales.py <orders|lines> <value> [live]")
+        sys.exit(1)
+
+    mode = sys.argv[1]
+    value = sys.argv[2]
+    live = len(sys.argv) > 3 and sys.argv[3].lower() == "live"
+
+    if mode == "orders":
+        main(
+            mode="orders",
+            your_ref=value,
+            dry_run=not live,
+        )
+    elif mode == "lines":
+        main(
+            mode="lines",
+            reference_number=value,
+            dry_run=not live,
+        )
+    else:
+        raise ValueError("mode skal være 'orders' eller 'lines'")
