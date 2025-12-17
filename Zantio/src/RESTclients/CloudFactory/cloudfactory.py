@@ -81,10 +81,11 @@ class CloudFactoryClient:
         invoices = data.get("invoices")
         for invoice in invoices:
             periodEndDate = invoice.get("periodEndDate")
+            pero = invoice.get("periodStartDate")
             if not periodEndDate:
                 continue
 
-            cloudInvoice = CloudFactoryInvoice(self._parse_date(periodEndDate))
+            cloudInvoice = CloudFactoryInvoice(self._parse_date(pero),self._parse_date(periodEndDate))
 
             cloudInvoice.extras = dict((x for x in invoice.items()))
 

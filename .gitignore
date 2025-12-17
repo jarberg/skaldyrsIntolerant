@@ -13,3 +13,6 @@ Zantio/src/RESTclients/Uniconta/__pycache__/uniconta.cpython-314.pyc
 *.csv
 Zantio/src/reconcilliation/output/reconciliation_summary.json
 *.iml
+Zantio/build
+Zantio/src/reconcilliation/output
+.idea

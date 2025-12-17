@@ -1,8 +1,0 @@
-Category,InvoicePeriodStart,InvoicePeriodEnd,Item Name,ItemNo,Quantity,Unit Price,Amount,Currency,Customer Id,Customer Name (from Excel),VAT (from Excel),Note
-Acronis,01-11-25,30-11-25,,,1,76.735,76.74,DKK,,,,No customer id column in billing file
-Acronis,01-11-25,30-11-25,,,12164,0.33379725,4060.31,DKK,,,,No customer id column in billing file
-Acronis,01-11-25,30-11-25,,,5,63.69005,318.46,DKK,,,,No customer id column in billing file
-Acronis,01-11-25,30-11-25,,,8,29.92665,239.42,DKK,,,,No customer id column in billing file
-Acronis,01-11-25,30-11-25,,,1,7.673500000000001,7.68,DKK,,,,No customer id column in billing file
-Acronis,01-11-25,30-11-25,,,3,184.164,552.5,DKK,,,,No customer id column in billing file
-Acronis,01-11-25,30-11-25,,,2,14.57965,29.16,DKK,,,,No customer id column in billing file

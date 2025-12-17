@@ -141,7 +141,7 @@ def generate_invoices_for_uniconta(cloudFac_client, uniconta_client, invoices, f
                 )
 
                 category = generate_invoice_category(customer_invoice, catKey)
-                line = generate_correct_product_line(catKey, row)
+                line = generate_correct_product_line(catKey, row, invoice.startDate, invoice.endDate)
 
                 # merge identical entries
                 addtolist = True
