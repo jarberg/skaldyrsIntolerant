@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from RESTclients.dataModels import CustomerInvoiceCategoryLineBase
 
 
@@ -28,10 +30,12 @@ def generate_correct_product_line(catName, record, startDate, endDate):
             ProductFamily=record.get("Product Family", "Failed"),
             Quantity=float(record.get("Quantity", 0.0)),
             UnitPrice=record.get("Unit Price", "Failed"),
-            PeriodStart=record.get("Start Date", "Failed"),
-            PeriodEnd=record.get("End Date", "Failed"),
+            PeriodStart=startDate,
+            PeriodEnd=endDate
         )
     elif catName == "Microsoft CSP (NCE)":
+        start = datetime.strptime(record.get("Start Date", "Failed"), "%d-%m-%y").date()
+        end = datetime.strptime(record.get("End Date", "Failed"), "%d-%m-%y").date()
         line = CustomerInvoiceCategoryLineBase(
             Amount=record.get("Amount", "Failed"),
             Currency=record.get("Currency", "Failed"),
@@ -42,10 +46,12 @@ def generate_correct_product_line(catName, record, startDate, endDate):
             ProductFamily=record.get("Description", "Failed"),
             Quantity=float(record.get("Quantity", 0.0)),
             UnitPrice=record.get("Unit Price", "Failed"),
-            PeriodStart=record.get("Start Date", "Failed"),
-            PeriodEnd=record.get("End Date", "Failed"),
+            PeriodStart=start,
+            PeriodEnd=end
         )
     elif catName == "Keepit":
+        start = datetime.strptime(record.get("Start Date", "Failed"), "%d-%m-%y").date()
+        end = datetime.strptime(record.get("End Date", "Failed"), "%d-%m-%y").date()
         line = CustomerInvoiceCategoryLineBase(
             Amount=record.get("Amount", "Failed"),
             Currency=record.get("Currency", "Failed"),
@@ -56,10 +62,12 @@ def generate_correct_product_line(catName, record, startDate, endDate):
             ProductFamily=record.get("Connector", "Failed"),
             Quantity=float(record.get("Quantity", 0.0)),
             UnitPrice=record.get("Unit Price", "Failed"),
-            PeriodStart=record.get("Start Date", "Failed"),
-            PeriodEnd=record.get("End Date", "Failed"),
+            PeriodStart=start,
+            PeriodEnd=end
         )
     elif catName == "Acronis":
+        start = datetime.strptime(record.get("Start Date", "Failed"), "%d-%m-%y").date()
+        end = datetime.strptime(record.get("End Date", "Failed"), "%d-%m-%y").date()
         line = CustomerInvoiceCategoryLineBase(
             Amount=record.get("Amount", "Failed"),
             Currency=record.get("Currency", "Failed"),
