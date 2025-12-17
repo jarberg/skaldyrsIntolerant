@@ -1,7 +1,8 @@
 from RESTclients.dataModels import CustomerInvoiceCategoryLineBase
 
 
-def generate_correct_product_line(catName, record):
+def generate_correct_product_line(catName, record, startDate, endDate):
+
     if catName == "Exclaimer":
         line = CustomerInvoiceCategoryLineBase(
             Amount=record.get("Amount", "Failed"),
@@ -13,6 +14,8 @@ def generate_correct_product_line(catName, record):
             ProductFamily=record.get("Subscription Name", "Failed"),
             Quantity=float(record.get("Quantity", 0.0)),
             UnitPrice=record.get("Unit Price", "Failed"),
+            PeriodStart=startDate,
+            PeriodEnd=endDate,
         )
     elif catName == "SPLA":
         line = CustomerInvoiceCategoryLineBase(
@@ -25,6 +28,8 @@ def generate_correct_product_line(catName, record):
             ProductFamily=record.get("Product Family", "Failed"),
             Quantity=float(record.get("Quantity", 0.0)),
             UnitPrice=record.get("Unit Price", "Failed"),
+            PeriodStart=record.get("Start Date", "Failed"),
+            PeriodEnd=record.get("End Date", "Failed"),
         )
     elif catName == "Microsoft CSP (NCE)":
         line = CustomerInvoiceCategoryLineBase(
@@ -37,6 +42,8 @@ def generate_correct_product_line(catName, record):
             ProductFamily=record.get("Description", "Failed"),
             Quantity=float(record.get("Quantity", 0.0)),
             UnitPrice=record.get("Unit Price", "Failed"),
+            PeriodStart=record.get("Start Date", "Failed"),
+            PeriodEnd=record.get("End Date", "Failed"),
         )
     elif catName == "Keepit":
         line = CustomerInvoiceCategoryLineBase(
@@ -49,6 +56,8 @@ def generate_correct_product_line(catName, record):
             ProductFamily=record.get("Connector", "Failed"),
             Quantity=float(record.get("Quantity", 0.0)),
             UnitPrice=record.get("Unit Price", "Failed"),
+            PeriodStart=record.get("Start Date", "Failed"),
+            PeriodEnd=record.get("End Date", "Failed"),
         )
     elif catName == "Acronis":
         line = CustomerInvoiceCategoryLineBase(
@@ -61,6 +70,8 @@ def generate_correct_product_line(catName, record):
             ProductFamily=record.get("Description", "Failed"),
             Quantity=float(record.get("Quantity", 0.0)),
             UnitPrice=record.get("Unit Price", "Failed"),
+            PeriodStart=startDate,
+            PeriodEnd=endDate
         )
     elif catName == "Dropbox":
         line = CustomerInvoiceCategoryLineBase(
@@ -73,6 +84,8 @@ def generate_correct_product_line(catName, record):
             ProductFamily="Dropbox",
             Quantity=float(record.get("License Quantity", 0.0)),
             UnitPrice=record.get("Unit Price", "Failed"),
+            PeriodStart=startDate,
+            PeriodEnd=endDate
         )
     elif catName == "Impossible Cloud":
         line = CustomerInvoiceCategoryLineBase(
@@ -85,6 +98,8 @@ def generate_correct_product_line(catName, record):
             ProductFamily="cloud service",
             Quantity=float(record.get("Quantity", 0.0)),
             UnitPrice=50,
+            PeriodStart=startDate,
+            PeriodEnd=endDate
         )
     elif catName == "Microsoft NCE (Azure)":
         line = CustomerInvoiceCategoryLineBase(
@@ -97,6 +112,8 @@ def generate_correct_product_line(catName, record):
             ProductFamily=record.get("Product Group"),
             Quantity=float(record.get("Quantity", 0.0)),
             UnitPrice=record.get("Unit Price", "Failed"),
+            PeriodStart=startDate,
+            PeriodEnd=endDate
         )
     else:
         line = CustomerInvoiceCategoryLineBase(
@@ -109,6 +126,8 @@ def generate_correct_product_line(catName, record):
             ProductFamily="Dropbox",
             Quantity=float(record.get("Quantity", 0.0)),
             UnitPrice=float(record.get("Unit Price", 0.0)),
+            PeriodStart=startDate,
+            PeriodEnd=endDate,
         )
 
     return line

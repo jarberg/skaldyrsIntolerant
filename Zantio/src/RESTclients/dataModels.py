@@ -22,6 +22,7 @@ class CloudFactoryInvoiceCategory:
 
 @dataclass
 class CloudFactoryInvoice:
+    startDate:date
     endDate:date
     categories: Dict[str, CloudFactoryInvoiceCategory] = field(default_factory=dict)
     extras: Dict[str, Any] = field(default_factory=dict)
@@ -53,6 +54,8 @@ class CustomerInvoiceCategoryLineBase:
     Currency: str
     Quantity: float
     UnitPrice: float
+    PeriodStart: date
+    PeriodEnd: date
 
     def __eq__(self, other):
         if not isinstance(other, CustomerInvoiceCategoryLineBase):

@@ -1,6 +1,5 @@
 import os
 from dataclasses import dataclass
-from turtledemo.chaos import line
 from typing import Optional, Dict, Any, List
 
 import requests
@@ -15,7 +14,7 @@ class UnicontaClient:
     def __init__(self) -> None:
 
         self.company_id = None
-        self.base_url = os.getenv("ERP_BASE_URL", "https://api.uniconta.com/")
+        self.base_url = os.getenv("ERP_UNI_BASE_URL")
         self.api_key = os.getenv("ERP_API_TOKEN")
         self._username = os.getenv("ERP_USERNAME")
         self._userpass = os.getenv("ERP_PASSWORD")
@@ -245,6 +244,8 @@ class UnicontaClient:
         if len(data) == 0:
             payload = {
                 "Account": debtor.get("Account"),
+                "Layout group": "Flexfone",
+                "LayoutGroup": "Flexfone",
                 "Account Name": debtor.get("Account Name"),
                 "YourRef": "API-ORDER-001",
                 "invoice_date": invoice.period_end,
@@ -292,6 +293,8 @@ class UnicontaClient:
                         "Dimension3": names.Dimension3,
                         "ReferenceNumber": "API_TEST",
                         "Price": price,
+                        "Note": f"{catline.PeriodStart}-{catline.PeriodEnd}",
+                        "Gruppe": "test",
                         "Item": names.Item,
                         "Text": str(catline.ItemName),
                         "Currency": catline.Currency,
