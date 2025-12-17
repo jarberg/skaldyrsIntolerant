@@ -110,20 +110,6 @@ def generate_correct_product_line(catName, record):
             Quantity=float(record.get("Quantity", 0.0)),
             UnitPrice=float(record.get("Unit Price", 0.0)),
         )
-    for id in [line.ItemName, line.ItemNo]:
-        temp = convertdict.get(id, None)
-        if temp:
-            line.ItemNo = temp
-            break
-
 
     return line
 
-
-convertdict = {
-    "Microsoft 365 Business Basic": "91003",
-    "Exchange Online (Plan 1)": "CFQ7TTC0LH16",
-    "Microsoft 365 Apps for Business" :"91008",
-    "Microsoft 365 Business Standard": "98001",
-    "Microsoft 365 Business Premium": "91002",
-}

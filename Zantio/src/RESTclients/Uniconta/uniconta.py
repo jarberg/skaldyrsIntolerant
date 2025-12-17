@@ -290,6 +290,7 @@ class UnicontaClient:
                         "Dimension1": names.Dimension1,
                         "Dimension2": names.Dimension2,
                         "Dimension3": names.Dimension3,
+                        "ReferenceNumber": "API_TEST",
                         "Price": price,
                         "Item": names.Item,
                         "Text": str(catline.ItemName),
@@ -297,11 +298,8 @@ class UnicontaClient:
                         "Qty": quantity,
                         "Total": amount
                     })
-
         response = self._post("Crud/InsertList/DebtorOrderLineClientUser", json=all_lines)
         report_success_or_failure(invoice, response.ok)
-
-
 
 @dataclass
 class CategoryNames:
@@ -326,4 +324,4 @@ lookupDict = {
 def calculate_price(line):
     if abs(line.Quantity) < 1e-12:
         return 0.0
-    return round(float(line.Amount) / float(line.Quantity),5)
+    return round(float(line.Amount) / float(line.Quantity), 5)

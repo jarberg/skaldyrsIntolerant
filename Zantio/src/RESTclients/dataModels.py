@@ -70,16 +70,15 @@ class CustomerInvoiceCategoryLineBase:
     def __str__(self) -> str:
         return f"{self.CustomerName} - {self.ItemName} ({self.Quantity})"
 
+    @staticmethod
+    def _norm_name(s: str) -> str:
+        return " ".join((s or "").split()).casefold()
+
     def can_merge(self, other) -> bool:
         if not isinstance(other, type(self)):
             return False
 
-        return (
-                self.ItemNo == other.ItemNo
-                and self.ProductFamily == other.ProductFamily
-                and self.Currency == other.Currency
-                and self.UnitPrice == other.UnitPrice
-        )
+        return self._norm_name(self.ItemName) == self._norm_name(other.ItemName)
 
 @dataclass
 class CustomerInvoiceCategory:
