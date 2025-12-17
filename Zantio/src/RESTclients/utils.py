@@ -126,7 +126,7 @@ def generate_invoices_for_uniconta(cloudFac_client, uniconta_client, invoices, f
             for row in invoice_rows:
                 raw_id = row.get(id_key)
 
-                customer_id = (str(raw_id).replace("{", "").replace("}", "").lower())
+                customer_id = str(raw_id).replace("{", "").replace("}", "").lower()
                 vatID = row.get(vat_key, "NULL") if vat_key else "NULL"
                 name = row.get(name_key, "NULL")
 
@@ -142,11 +142,21 @@ def generate_invoices_for_uniconta(cloudFac_client, uniconta_client, invoices, f
 
                 category = generate_invoice_category(customer_invoice, catKey)
                 line = generate_correct_product_line(catKey, row)
-                category.lines.append(line)
 
-                previous_customer_id = customer_id
+                #remove all zero amount entries  and merge identical entries
+                if not (abs(line.Amount) == 0.0 and abs(line.Quantity) == 0.0):
+                    addtolist = True
+                    for catLine in category.lines:
+                        if catLine.can_merge(line):
+                            catLine += line
+                            addtolist = False
+                            break
+                    if addtolist:
+                        category.lines.append(line)
 
-                recon_data.add_to_total_amount(row)
+                    previous_customer_id = customer_id
+
+                    recon_data.add_to_total_amount(row)
 
     return errors
 

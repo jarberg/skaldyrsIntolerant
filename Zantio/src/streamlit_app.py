@@ -8,19 +8,10 @@ from contextlib import redirect_stdout, redirect_stderr
 import pandas as pd
 import streamlit as st
 
-# ---------------------------------------------------------
-# Sti-opsætning
-# ---------------------------------------------------------
 APP_DIR = Path(__file__).resolve().parent
 OUTPUT_DIR = APP_DIR / "reconcilliation" / "output"
-
-
 SUMMARY_PATH = OUTPUT_DIR / "reconciliation_summary.json"
 
-
-# ---------------------------------------------------------
-# Hjælpefunktioner
-# ---------------------------------------------------------
 def run_main_script():
     """Kør main.py med samme Python som Streamlit bruger."""
     script_path = APP_DIR / "main.py"
@@ -59,7 +50,6 @@ def run_main_script():
             stderr=tb,
         )
 
-
 def load_summary():
     """Læs JSON-resumé af afstemningen."""
     if not SUMMARY_PATH.exists():
@@ -73,7 +63,6 @@ def load_summary():
         return None
 
     return data
-
 
 def load_csv(path_str: str):
     """Læs en CSV-fil, hvis stien findes. path_str kommer fra JSON'en."""
@@ -99,17 +88,12 @@ def load_csv(path_str: str):
 
     return df
 
-
 def format_currency(value):
     try:
         return f"{float(value):,.2f} DKK".replace(",", "X").replace(".", ",").replace("X", ".")
     except Exception:
         return "-"
 
-
-# ---------------------------------------------------------
-# UI
-# ---------------------------------------------------------
 st.set_page_config(
     page_title="CloudFactory ↔ Uniconta afstemning",
     layout="wide",
@@ -128,9 +112,6 @@ Alle summer i resuméet er ekskl. moms.
 
 st.divider()
 
-# ---------------------------------------------------------
-# Kør-knap
-# ---------------------------------------------------------
 if st.button("Kør afstemning nu"):
     with st.spinner("Afstemning kører..."):
         result = run_main_script()
@@ -156,14 +137,8 @@ if st.button("Kør afstemning nu"):
 
 st.divider()
 
-# ---------------------------------------------------------
-# Resumé-bokse
-# ---------------------------------------------------------
 summary = load_summary()
 
-# ---------------------------------------------------------
-# Resumé-bokse
-# ---------------------------------------------------------
 summary = load_summary()
 
 if summary is None:
@@ -292,12 +267,8 @@ else:
         "Alle summer er baseret på CloudFactory-feltet 'Amount' i billing-filerne."
     )
 
-
 st.divider()
 
-# ---------------------------------------------------------
-# Detaljetabeller
-# ---------------------------------------------------------
 st.subheader("Detaljeret afstemning")
 
 if summary is None:

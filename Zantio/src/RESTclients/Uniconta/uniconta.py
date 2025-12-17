@@ -1,4 +1,6 @@
 import os
+from dataclasses import dataclass
+from turtledemo.chaos import line
 from typing import Optional, Dict, Any, List
 
 import requests
@@ -79,9 +81,6 @@ class UnicontaClient:
         response = self._post("Query/Get/DebtorOrderLineClient", json=payload)
         if response.ok:
             dictlist =response.json()
-            print(order_number)
-
-
 
 
     def _ensure_login(self):
@@ -278,24 +277,53 @@ class UnicontaClient:
         all_lines = []
 
         for key, category in invoice.categories.items():
-            for catline in category.lines:
-                externnumber = "Software"
-                if "365" in catline.ItemName:
-                    externnumber = "M365 Licenses"
-                if "Azure" in key:
-                    externnumber = "Azure"
+            names = lookupDict.get(key)
 
-                all_lines.append({
-                    "OrderNumber": OrderNumber,
-                    "mlbEksterntVaregrupp": externnumber,
-                    "CustomerItemNumber": catline.ItemNo,
-                    "Item": catline.ItemNo,
-                    "Text": str(catline.ItemName),
-                    "Currency": catline.Currency,
-                    "Qty": catline.Quantity,
-                    "Total" : catline.Amount
-                })
+            for catline in category.lines:
+                if catline.Amount != 0.0:
+                    price = round(round(catline.UnitPrice, 5) or calculate_price(catline), 6)
+                    amount = round(catline.Amount, 2)
+                    quantity = catline.Quantity
+                    all_lines.append({
+                        "OrderNumber": OrderNumber,
+                        "mlbEksterntVaregrupp": names.mlbEksterntVaregrupp,
+                        "Dimension1": names.Dimension1,
+                        "Dimension2": names.Dimension2,
+                        "Dimension3": names.Dimension3,
+                        "Price": price,
+                        "Item": names.Item,
+                        "Text": str(catline.ItemName),
+                        "Currency": catline.Currency,
+                        "Qty": quantity,
+                        "Total": amount
+                    })
 
         response = self._post("Crud/InsertList/DebtorOrderLineClientUser", json=all_lines)
         report_success_or_failure(invoice, response.ok)
 
+
+
+@dataclass
+class CategoryNames:
+    Item: str
+    Dimension1: str
+    Dimension2: str
+    Dimension3: str
+    mlbEksterntVaregrupp: str
+
+lookupDict = {
+    "SPLA": CategoryNames("Infrastructure", "InfraS", "Lokal ser", "Backupli2", "Infrastructure"),
+    "Microsoft NCE (Azure)": CategoryNames("Labor", "Software", "Azure", "Azure", "Azure"),
+    "Microsoft CSP (NCE)": CategoryNames("M365Licenses", "Micr365", "Mic365Lic", "Mic365Lic2", "M365 Licenses"),
+    "Dropbox": CategoryNames("Labor", "Software", "Software", "Software", "Software"),
+    "Acronis": CategoryNames("Infrastructure", "Software", "Mic36Back", "Mic36Back2", "Infrastructure"),
+    "Exclaimer": CategoryNames("Labor", "Software", "Signatur", "Signatur2", "Software"),
+    "Keepit": CategoryNames("Infrastructure", "InfraS", "Mic36Back", "Mic36Back2", "Infrastructure"),
+    "Impossible cloud": CategoryNames("Infrastructure", "InfraS", "Backup da", "Backupda2", "Infrastructure"),
+}
+
+
+def calculate_price(line):
+    if abs(line.Quantity) < 1e-12:
+        return 0.0
+    return round(float(line.Amount) / float(line.Quantity),5)

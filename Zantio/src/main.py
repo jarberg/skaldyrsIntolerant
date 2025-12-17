@@ -56,5 +56,15 @@ def main(*args, **kwargs):
     else: print(format_str_with_color("No errors found", "green"))
     print(" ")
 
+    total = 0
+    for key, item in recon_data.billed_invoice_kay.items():
+        print(f"Category: {key:<30} total: {item:>15,.2f}")
+        total += item
+
+    print("-" * 60)
+    print(f"Category: {'TOTAL':<30} total: {total:>15,.2f}")
+
     print(format_str_with_color("Setup StreamletPage...", "blue"))
     setupStreamletPage(foundCatKeyDict)
+
+main()

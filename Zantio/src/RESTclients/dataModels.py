@@ -43,7 +43,7 @@ class Customer:
 
 
 @dataclass
-class CustomerInvoiceCategoryLine_base:
+class CustomerInvoiceCategoryLineBase:
     ProductFamily: str
     ItemName: str
     ItemNo: int
@@ -51,12 +51,35 @@ class CustomerInvoiceCategoryLine_base:
     Amount: float
     Units: str
     Currency: str
-    ItemName: str
     Quantity: float
     UnitPrice: float
 
+    def __eq__(self, other):
+        if not isinstance(other, CustomerInvoiceCategoryLineBase):
+            return NotImplemented
+        return self.__dict__ == other.__dict__
+
+    def __iadd__(self, other):
+        if not isinstance(other, type(self)):
+            return NotImplemented
+
+        self.Quantity += other.Quantity
+        self.Amount += other.Amount
+        return self
+
     def __str__(self) -> str:
         return f"{self.CustomerName} - {self.ItemName} ({self.Quantity})"
+
+    def can_merge(self, other) -> bool:
+        if not isinstance(other, type(self)):
+            return False
+
+        return (
+                self.ItemNo == other.ItemNo
+                and self.ProductFamily == other.ProductFamily
+                and self.Currency == other.Currency
+                and self.UnitPrice == other.UnitPrice
+        )
 
 @dataclass
 class CustomerInvoiceCategory:

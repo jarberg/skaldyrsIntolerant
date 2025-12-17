@@ -1,9 +1,6 @@
 import io
-from wsgiref import headers
 
 from openpyxl import load_workbook
-
-
 
 def convert_excel_to_dict(excel_bytes):
     wb = load_workbook(io.BytesIO(excel_bytes))
@@ -31,8 +28,9 @@ def convert_row_to_dict(catKey, row):
         "InvoicePeriodEnd": row.get("End Date", ""),
         "Item Name": row.get("Item Name", ""),
         "ItemNo": row.get("ItemNo", ""),
-        "Quantity": row.get("Quantity", ""),
+        "Quantity": row.get("Quantity",""),
         "Unit Price": row.get("Unit Price", ""),
+        "Units": row.get("Units", "stk"),
         "Amount": row,
         "Currency": row.get("Currency", ""),
         "Customer Id": "",
@@ -40,6 +38,8 @@ def convert_row_to_dict(catKey, row):
         "VAT (from Excel)": "",
         "Note": "No customer id column in billing file",
     }
+
+
     return ret
 
 def get_id_keys(data_rows):

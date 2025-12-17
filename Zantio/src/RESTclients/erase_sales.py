@@ -90,14 +90,14 @@ def main(dry_run: bool = True, your_ref: str = "API-ORDER-001"):
     """
     load_dotenv()
 
-    print("🔐 Logger ind i Uniconta...")
+    print(" Logger ind i Uniconta...")
     adapter = UnicontaClient()
 
-    print(f"🔎 Søger efter DebtorOrderClient-ordrer med YourRef = '{your_ref}'...")
+    print(f" Søger efter DebtorOrderClient-ordrer med YourRef = '{your_ref}'...")
     orders = fetch_debtor_orders(adapter, your_ref=your_ref)
 
     if not orders:
-        print("✅ Ingen ordrer fundet med den YourRef – intet at slette.")
+        print(" Ingen ordrer fundet med den YourRef – intet at slette.")
         return
 
     # Lille oversigt

@@ -21,6 +21,8 @@ class recon_data:
     failedList = []
     invoice_customer_dict: dict[str, CustomerInvoice] = {}
     failed_customer_list: dict[str, CustomerInvoice_Error] = {}
+    billed_invoice_kay: dict[str, float] = {}
+    billed_invoice_kay_fail: dict[str, float] = {}
 
     @classmethod
     def add_failed_customer(cls, catKey, record):
@@ -66,29 +68,43 @@ class recon_data:
             }
         )
 
-    @classmethod
-    def reset(cls):
-        cls.total_failed_cf = None
-        cls.total_amount_all = 0.0
-        cls.total_amount_success = 0.0
-        cls.total_amount_failed = 0.0
-        cls.total_amount_no_customer_id = 0.0
-        cls.success_rows = []
-        cls.no_customer_id_rows = []
-        cls.failedList = []
-        cls.invoice_customer_dict: dict[str, CustomerInvoice] = {}
-        cls.failed_customer_list: dict[str, CustomerInvoice_Error] = {}
+    @staticmethod
+    def reset():
+        recon_data.total_failed_cf = None
+        recon_data.total_amount_all = 0.0
+        recon_data.total_amount_success = 0.0
+        recon_data.total_amount_failed = 0.0
+        recon_data.total_amount_no_customer_id = 0.0
+        recon_data.success_rows = []
+        recon_data.no_customer_id_rows = []
+        recon_data.failedList = []
+        recon_data.invoice_customer_dict= {}
+        recon_data.failed_customer_list = {}
+        recon_data.billed_invoice_kay= {}
+        recon_data.billed_invoice_kay_fail= {}
 
 
 def report_success_or_failure(invoice, success):
     # Sum invoice amount: ren Amount (CloudFactory-beløb)
     inv_amount = 0.0
-    for category in invoice.categories.values():
+    for key, category in invoice.categories.items():
+        cat_total = recon_data.billed_invoice_kay.get(key, 0.0)
+        cat_total_fail = recon_data.billed_invoice_kay_fail.get(key, 0.0)
+
         for line in category.lines:
             try:
-                inv_amount += float(line.Amount or 0)
+                inv_amount += round(float(line.Amount or 0),2)
+                if success:
+                    cat_total+= round(float(line.Amount or 0),2)
+                else:
+                    cat_total_fail+= round(float(line.Amount or 0),2)
+
             except (TypeError, ValueError):
                 pass
+        if success:
+            recon_data.billed_invoice_kay[key] = cat_total
+        else:
+            recon_data.billed_invoice_kay_fail[key] = cat_total_fail
 
     if success:
         # No new failure added => this invoice was successfully posted
