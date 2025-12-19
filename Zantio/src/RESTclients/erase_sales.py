@@ -167,7 +167,8 @@ def main(
 
     if mode == "orders":
         if not your_ref:
-            raise ValueError("your_ref skal angives i mode='orders'")
+            pass
+            #raise ValueError("your_ref skal angives i mode='orders'")
 
         orders = fetch_debtor_orders(adapter, your_ref)
 
@@ -239,7 +240,11 @@ if __name__ == "__main__":
     # Live linje-sletning
     python erase_sales.py lines API_TEST live
     """
-
+    main(
+        mode="orders",
+        your_ref="API-ORDER-001",
+        dry_run=False,
+    )
     if len(sys.argv) < 3:
         print("Usage: erase_sales.py <orders|lines> <value> [live]")
         sys.exit(1)
@@ -261,4 +266,9 @@ if __name__ == "__main__":
             dry_run=not live,
         )
     else:
+        main(
+            mode="orders",
+            your_ref="API-ORDER-001",
+            dry_run=not live,
+        )
         raise ValueError("mode skal være 'orders' eller 'lines'")

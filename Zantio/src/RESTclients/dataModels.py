@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import date
+from math import copysign
 from typing import  Optional, Dict, Any
 
 @dataclass
@@ -57,17 +58,14 @@ class CustomerInvoiceCategoryLineBase:
     PeriodStart: date
     PeriodEnd: date
 
-    def __eq__(self, other):
-        if not isinstance(other, CustomerInvoiceCategoryLineBase):
-            return NotImplemented
-        return self.__dict__ == other.__dict__
-
-    def __iadd__(self, other):
+    def __add__(self, other):
         if not isinstance(other, type(self)):
             return NotImplemented
 
         self.Quantity += other.Quantity
-        self.Amount += other.Amount
+        self.Amount += round(other.UnitPrice*other.Quantity, 2)
+        self.UnitPrice = round(self.Amount / self.Quantity, 5)
+
         return self
 
     def __str__(self) -> str:
@@ -80,8 +78,11 @@ class CustomerInvoiceCategoryLineBase:
     def can_merge(self, other) -> bool:
         if not isinstance(other, type(self)):
             return False
-
-        return self._norm_name(self.ItemName) == self._norm_name(other.ItemName)
+        val = self._norm_name(self.ItemName) == self._norm_name(other.ItemName) and self.UnitPrice == other.UnitPrice
+        if val:
+            pass
+            #print(self._norm_name(self.ItemName), " ", self._norm_name(other.ItemName))
+        return val
 
 @dataclass
 class CustomerInvoiceCategory:

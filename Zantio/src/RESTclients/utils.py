@@ -140,24 +140,23 @@ def generate_invoices_for_uniconta(cloudFac_client, uniconta_client, invoices, f
                     uniconta_client
                 )
 
+                previous_customer_id = customer_id
                 category = generate_invoice_category(customer_invoice, catKey)
                 line = generate_correct_product_line(catKey, row, invoice.startDate, invoice.endDate)
 
                 # merge identical entries
-                addtolist = True
-                for index, catLine in enumerate(category.lines):
-                    if catLine.can_merge(line):
-                        catLine += line
-                        category.lines[index] = catLine
-                        addtolist = False
-                        break
-                if addtolist:
-                    category.lines.append(line)
+                #addtolist = True
+                #for index, catLine in enumerate(category.lines):
+                #    if catLine.can_merge(line):
+                #        category.lines[index] = catLine+line
+                #        addtolist = False
+                #        break
+                #if addtolist:
+                #    category.lines.append(line)
 
-                previous_customer_id = customer_id
+                category.lines.append(line)
+
                 recon_data.add_to_total_amount(row)
-
-
 
     return errors
 

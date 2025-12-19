@@ -61,6 +61,9 @@ def main(*args, **kwargs):
         print(f"Category: {key:<30} total: {item:>15,.2f}")
         total += item
 
+    for key, item in recon_data.billed_invoice_kay_fail.items():
+        print(f"Category: {key:<30} total: {item:>15,.2f}")
+        total += item
     print("-" * 60)
     print(f"Category: {'TOTAL':<30} total: {total:>15,.2f}")
 

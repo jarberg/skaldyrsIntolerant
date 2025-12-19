@@ -4,8 +4,9 @@ from RESTclients.dataModels import CustomerInvoiceCategoryLineBase
 
 
 def generate_correct_product_line(catName, record, startDate, endDate):
-
     if catName == "Exclaimer":
+        start = datetime.strptime(record.get("Start Date", "Failed"), "%d-%m-%y").date()
+        end = datetime.strptime(record.get("End Date", "Failed"), "%d-%m-%y").date()
         line = CustomerInvoiceCategoryLineBase(
             Amount=record.get("Amount", "Failed"),
             Currency=record.get("Currency", "Failed"),
@@ -16,8 +17,8 @@ def generate_correct_product_line(catName, record, startDate, endDate):
             ProductFamily=record.get("Subscription Name", "Failed"),
             Quantity=float(record.get("Quantity", 0.0)),
             UnitPrice=record.get("Unit Price", "Failed"),
-            PeriodStart=startDate,
-            PeriodEnd=endDate,
+            PeriodStart=start,
+            PeriodEnd=end,
         )
     elif catName == "SPLA":
         line = CustomerInvoiceCategoryLineBase(
@@ -78,8 +79,8 @@ def generate_correct_product_line(catName, record, startDate, endDate):
             ProductFamily=record.get("Description", "Failed"),
             Quantity=float(record.get("Quantity", 0.0)),
             UnitPrice=record.get("Unit Price", "Failed"),
-            PeriodStart=startDate,
-            PeriodEnd=endDate
+            PeriodStart=start,
+            PeriodEnd=end
         )
     elif catName == "Dropbox":
         line = CustomerInvoiceCategoryLineBase(
@@ -124,6 +125,7 @@ def generate_correct_product_line(catName, record, startDate, endDate):
             PeriodEnd=endDate
         )
     else:
+        start = datetime.strptime(record.get("Billing Start Date", "Failed"), "%d-%m-%y").date()
         line = CustomerInvoiceCategoryLineBase(
             Amount=float(record.get("Amount", 0.0)),
             Currency=record.get("Currency", "Failed"),
@@ -134,9 +136,18 @@ def generate_correct_product_line(catName, record, startDate, endDate):
             ProductFamily="Dropbox",
             Quantity=float(record.get("Quantity", 0.0)),
             UnitPrice=float(record.get("Unit Price", 0.0)),
-            PeriodStart=startDate,
+            PeriodStart=start,
             PeriodEnd=endDate,
         )
+
+    if abs(line.Quantity) < 1E-6:
+        line.Quantity = 1
+
+    if line.Currency.upper() != "DKK":
+        print(line.Currency)
+
+    line.UnitPrice = round(float(abs(line.Amount)) / float(abs(line.Quantity)), 5)
+    #line.Amount = round(line.Amount, 2)
 
     return line
 

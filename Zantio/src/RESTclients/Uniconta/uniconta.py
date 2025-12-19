@@ -3,9 +3,12 @@ from dataclasses import dataclass
 from typing import Optional, Dict, Any, List
 
 import requests
+from requests.compat import basestring
 
 from RESTclients.dataModels import CustomerInvoice
 from reconcilliation.utils import report_success_or_failure
+
+
 
 class UnicontaClient:
 
@@ -228,7 +231,6 @@ class UnicontaClient:
 
     def find_orderNumber(self, debtor, invoice):
         OrderNumber = None
-
         accountname = debtor.get("Account", "None")
         payload = [
             {
@@ -237,34 +239,45 @@ class UnicontaClient:
                 "OrderBy": "true","OrderByDescending": "false",
             }
         ]
-
         resp = self._post("Query/Get/DebtorOrderClient", json=payload)
         data = resp.json()
 
-        if len(data) == 0:
+        if type(data)!=type(list)and len(data) == 0:
             payload = {
-                "Account": debtor.get("Account"),
+                "Account": int(debtor.get("Account")),
                 "Layout group": "Flexfone",
                 "LayoutGroup": "Flexfone",
+                "Currency": "DKK" if invoice.customer.countryCode == "DK" else "EUR",
                 "Account Name": debtor.get("Account Name"),
                 "YourRef": "API-ORDER-001",
-                "invoice_date": invoice.period_end,
-                "Simulate": "true"
+                "invoice_date": invoice.period_end
             }
             resp =  self._post("Crud/Insert/DebtorOrderClient", json=payload)
-
+            data = resp.json()
             if not resp.ok:
                 raise RuntimeError(f"ERP create_invoice failed: {resp.status_code} {resp.text}")
 
-            data = resp.json()
-            OrderNumber = str(data.get("OrderNumber") or data.get("invoiceNumber"))
+            if type(data)!=type(list):
+                payload = [
+                    {
+                        "PropertyName": "Account", "FilterValue": accountname,
+                        "Skip": 0, "Take": 0,
+                        "OrderBy": "true", "OrderByDescending": "false",
+                    }
+                ]
+
+                resp = self._post("Query/Get/DebtorOrderClient", json=payload)
+                data = resp.json()
+                if not resp.ok:
+                    raise RuntimeError(f"ERP create_invoice failed: {resp.status_code} {resp.text}")
+            if type(data)==type(list) and len(data) == 0:
+                raise RuntimeError(f"ERP create_invoice failed: {resp.status_code} {resp.text}")
+            else:
+                OrderNumber = data[0].get("OrderNumber") or data[0].get("invoiceNumber")
         else:
-            OrderNumber = str(next(iter(data)).get("OrderNumber") or next(iter(data)).get("invoiceNumber"))
+            OrderNumber = data[0].get("OrderNumber") or data[0].get("invoiceNumber")
         if OrderNumber == "Invalid" or OrderNumber == None:
-            pass
-            #print("order number not found")
-        else:
-            self.get_order_lines_by_order_number(OrderNumber)
+            print("order number not found")
 
         return OrderNumber
 
@@ -281,27 +294,27 @@ class UnicontaClient:
             names = lookupDict.get(key)
 
             for catline in category.lines:
+                price = catline.UnitPrice/(1 if invoice.customer.countryCode == "DK" else 7.45)
+                #round(price, 5)
                 if catline.Amount != 0.0:
-                    price = round(round(catline.UnitPrice, 5) or calculate_price(catline), 6)
-                    amount = round(catline.Amount, 2)
-                    quantity = catline.Quantity
                     all_lines.append({
                         "OrderNumber": OrderNumber,
                         "mlbEksterntVaregrupp": names.mlbEksterntVaregrupp,
                         "Dimension1": names.Dimension1,
                         "Dimension2": names.Dimension2,
                         "Dimension3": names.Dimension3,
+                        "Currency": "DKK" if invoice.customer.countryCode == "DK" else "EUR",
                         "ReferenceNumber": "API_TEST",
                         "Price": price,
                         "Note": f"{catline.PeriodStart.strftime("%d-%m-%Y")} - {catline.PeriodEnd.strftime("%d-%m-%Y")}",
                         "Item": names.Item,
                         "Text": str(catline.ItemName),
-                        "Currency": catline.Currency,
-                        "Qty": quantity,
-                        "Total": amount
+                        "Qty": catline.Quantity,
+                        #"Total": catline.Amount
                     })
         response = self._post("Crud/InsertList/DebtorOrderLineClientUser", json=all_lines)
         report_success_or_failure(invoice, response.ok)
+
 
 @dataclass
 class CategoryNames:
@@ -312,18 +325,13 @@ class CategoryNames:
     mlbEksterntVaregrupp: str
 
 lookupDict = {
-    "SPLA": CategoryNames("Infrastructure", "InfraS", "Lokal ser", "Backupli2", "Infrastructure"),
-    "Microsoft NCE (Azure)": CategoryNames("Labor", "Software", "Azure", "Azure", "Azure"),
-    "Microsoft CSP (NCE)": CategoryNames("M365Licenses", "Micr365", "Mic365Lic", "Mic365Lic2", "M365 Licenses"),
-    "Dropbox": CategoryNames("Labor", "Software", "Software", "Software", "Software"),
-    "Acronis": CategoryNames("Infrastructure", "Software", "Mic36Back", "Mic36Back2", "Infrastructure"),
-    "Exclaimer": CategoryNames("Labor", "Software", "Signatur", "Signatur2", "Software"),
-    "Keepit": CategoryNames("Infrastructure", "InfraS", "Mic36Back", "Mic36Back2", "Infrastructure"),
-    "Impossible cloud": CategoryNames("Infrastructure", "InfraS", "Backup da", "Backupda2", "Infrastructure"),
+    "SPLA":                     CategoryNames("Infrastructure", "InfraS", "Lokal ser", "Backupli2", "Infrastructure"),
+    "Microsoft NCE (Azure)":    CategoryNames("Labor", "Software", "Azure", "Azure", "Azure"),
+    "Microsoft CSP (NCE)":      CategoryNames("M365Licenses", "Micr365", "Mic365Lic", "Mic365Lic2", "M365 Licenses"),
+    "Dropbox":                  CategoryNames("Labor", "Software", "Software", "Software", "Software"),
+    "Acronis":                  CategoryNames("Infrastructure", "Software", "Mic36Back", "Mic36Back2", "Infrastructure"),
+    "Exclaimer":                CategoryNames("Labor", "Software", "Signatur", "Signatur2", "Software"),
+    "Keepit":                   CategoryNames("Infrastructure", "InfraS", "Mic36Back", "Mic36Back2", "Infrastructure"),
+    "Impossible cloud":         CategoryNames("Infrastructure", "InfraS", "Backup da", "Backupda2", "Infrastructure"),
 }
 
-
-def calculate_price(line):
-    if abs(line.Quantity) < 1e-12:
-        return 0.0
-    return round(float(line.Amount) / float(line.Quantity), 5)
