@@ -1,14 +1,15 @@
 import io
 
+from duckdb.experimental.spark.sql.functions import first
 from openpyxl import load_workbook
 
 def convert_excel_to_dict(excel_bytes):
     wb = load_workbook(io.BytesIO(excel_bytes))
     ws = wb.active
-    #if wb.active.title == "Usage" or wb.active.title == "Acronis Total":
-       #ws = wb.worksheets[1]
-    # else:
-      #  ws = wb.active
+    if wb.active.title == "Usage" or wb.active.title == "Acronis Total":
+       ws = wb.worksheets[1]
+    else:
+       ws = wb.active
 
     # header row
     header_row = next(ws.iter_rows(values_only=True))
@@ -58,6 +59,10 @@ def get_id_keys(data_rows):
         id_key = "Customer Id"
         vat_key = "Customer VAT" if "Customer VAT" in firstRow else None
         name_key = "Customer Name"
+    elif "Tenant Name" in firstRow:
+        id_key = "Portal Customer Id"
+        vat_key = "Portal Customer VAT" if "Portal Customer VAT" in firstRow else None
+        name_key = "Tenant Name"
     else:
         success = False
 

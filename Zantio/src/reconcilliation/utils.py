@@ -32,6 +32,7 @@ class recon_data:
             amount_val = 0.0
 
         cls.total_amount_no_customer_id += amount_val
+
         cls.no_customer_id_rows.append(convert_row_to_dict(catKey, record))
 
     @classmethod
@@ -45,11 +46,19 @@ class recon_data:
     @classmethod
     def add_no_customer_id_row(cls, amount_val, cat_key, record, name_key="", vat_key=""):
         try:
-            amount_val = float(record.get("Amount", 0) or 0)
+            if cat_key == "Impossible Cloud":
+                amount_val = float(record.get("Quantity", 0) or 0)*50
+                record["Unit Price"] = 50
+            else:
+                amount_val = float(record.get("Amount", 0) or 0)
         except (TypeError, ValueError):
             amount_val = 0.0
 
         cls.total_amount_no_customer_id += amount_val  # Ingen Customer Id i række kan ikke tildele til kunde
+        old_amount = cls.billed_invoice_kay_fail.get(cat_key, 0.0)
+        cls.billed_invoice_kay_fail[cat_key] = old_amount + amount_val
+
+
         cls.no_customer_id_rows.append(
             {
                 "Category": cat_key,

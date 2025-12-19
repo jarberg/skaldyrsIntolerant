@@ -240,11 +240,6 @@ if __name__ == "__main__":
     # Live linje-sletning
     python erase_sales.py lines API_TEST live
     """
-    main(
-        mode="orders",
-        your_ref="API-ORDER-001",
-        dry_run=False,
-    )
     if len(sys.argv) < 3:
         print("Usage: erase_sales.py <orders|lines> <value> [live]")
         sys.exit(1)

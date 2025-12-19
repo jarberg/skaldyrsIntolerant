@@ -5,18 +5,17 @@ from reconcilliation.utils import recon_data
 
 
 def generate_customer_invoice(
-    previousCustomerid,
-    customerid,
-    vatID,
-    name,
-    record,
-    uniconta_adapter,
+        previousCustomerid,
+        customerid,
+        vatID,
+        name,
+        record,
+        uniconta_adapter,
 ):
-
     if (
-        previousCustomerid != customerid
-        and (customerid not in recon_data.invoice_customer_dict.keys())
-        and (customerid not in recon_data.failed_customer_list.keys())
+            previousCustomerid != customerid
+            and (customerid not in recon_data.invoice_customer_dict.keys())
+            and (customerid not in recon_data.failed_customer_list.keys())
     ):
         potential_clients = list(
             (
@@ -30,9 +29,9 @@ def generate_customer_invoice(
                 customerInvoice = CustomerInvoice_Error(
                     customer=None,
                     reason="No match found for customer with name: "
-                    + name
-                    + " with vatid: "
-                    + vatID,
+                           + name
+                           + " with vatid: "
+                           + vatID,
                     categories={},
                 )
                 recon_data.failed_customer_list[customerid] = customerInvoice
@@ -48,9 +47,9 @@ def generate_customer_invoice(
                 customerInvoice = CustomerInvoice_Error(
                     customer=None,
                     reason="to many matches found for customer with name: "
-                    + name
-                    + " with vatid: "
-                    + vatID,
+                           + name
+                           + " with vatid: "
+                           + vatID,
                     categories={},
                 )
                 recon_data.failed_customer_list[customerid] = customerInvoice
@@ -64,17 +63,18 @@ def generate_customer_invoice(
         customerInvoice = CustomerInvoice_Error(
             customer=None,
             reason="Base catched error. Customerid: "
-            + customerid
-            + " VatID: "
-            + vatID
-            + " Name: "
-            + name
-            + "",
+                   + customerid
+                   + " VatID: "
+                   + vatID
+                   + " Name: "
+                   + name
+                   + "",
             categories={},
         )
         recon_data.failed_customer_list[customerid] = customerInvoice
 
     return customerInvoice
+
 
 def generate_invoice_category(invoice, catName):
     category = invoice.categories.get(catName, None)
@@ -86,9 +86,10 @@ def generate_invoice_category(invoice, catName):
         invoice.categories[catName] = category
     return category
 
+
 def generate_invoices_for_uniconta(cloudFac_client, uniconta_client, invoices, foundCatKeyDict):
     errors = 0
-    #preload excel data structures
+    # preload excel data structures
     for invoice in invoices:
         for catKey in invoice.categories.keys():
             foundCatKeyDict.add(catKey)
@@ -103,23 +104,23 @@ def generate_invoices_for_uniconta(cloudFac_client, uniconta_client, invoices, f
                 for record in invoice_rows:
                     recon_data.add_failed_customer(catKey, record)
                 invoice.categories[catKey] = None
-                errors+=1
+                errors += 1
                 continue
 
             invoice.categories.get(catKey).idKey = id_key
             invoice.categories.get(catKey).vatKey = vat_key
             invoice.categories.get(catKey).nameKey = name_key
 
-    #remove all categories that failed to get correct keys for important headers
+    # remove all categories that failed to get correct keys for important headers
     for invoice in invoices:
         invoice.categories = {k: v for k, v in invoice.categories.items() if v is not None}
 
     for invoice in invoices:
         for catKey in invoice.categories.keys():
             invoice_rows = invoice.categories.get(catKey).excelLink
-            id_key=invoice.categories.get(catKey).idKey
-            vat_key=invoice.categories.get(catKey).vatKey
-            name_key=invoice.categories.get(catKey).nameKey
+            id_key = invoice.categories.get(catKey).idKey
+            vat_key = invoice.categories.get(catKey).vatKey
+            name_key = invoice.categories.get(catKey).nameKey
 
             previous_customer_id = None
 
@@ -127,6 +128,8 @@ def generate_invoices_for_uniconta(cloudFac_client, uniconta_client, invoices, f
                 raw_id = row.get(id_key)
 
                 customer_id = str(raw_id).replace("{", "").replace("}", "").lower()
+
+
                 vatID = row.get(vat_key, "NULL") if vat_key else "NULL"
                 name = row.get(name_key, "NULL")
 
@@ -144,14 +147,17 @@ def generate_invoices_for_uniconta(cloudFac_client, uniconta_client, invoices, f
                 category = generate_invoice_category(customer_invoice, catKey)
                 line = generate_correct_product_line(catKey, row, invoice.startDate, invoice.endDate)
 
+                if customer_id == "00000000-0000-0000-0000-000000000000":
+                    recon_data.add_no_customer_id_row(line.Amount, catKey, row, name_key=name_key, vat_key=vat_key)
+
                 # merge identical entries
-                #addtolist = True
-                #for index, catLine in enumerate(category.lines):
+                # addtolist = True
+                # for index, catLine in enumerate(category.lines):
                 #    if catLine.can_merge(line):
                 #        category.lines[index] = catLine+line
                 #        addtolist = False
                 #        break
-                #if addtolist:
+                # if addtolist:
                 #    category.lines.append(line)
 
                 category.lines.append(line)
@@ -159,4 +165,3 @@ def generate_invoices_for_uniconta(cloudFac_client, uniconta_client, invoices, f
                 recon_data.add_to_total_amount(row)
 
     return errors
-

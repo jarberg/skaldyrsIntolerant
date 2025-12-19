@@ -209,6 +209,7 @@ class UnicontaClient:
         candidates = self._candidate_vat_values(invoice.customer)
         if not candidates:
             report_success_or_failure(invoice, False)
+
             return None
 
         norm_candidates = [self._normalize_vat(c) for c in candidates if c]
@@ -243,15 +244,21 @@ class UnicontaClient:
         data = resp.json()
 
         if type(data)!=type(list)and len(data) == 0:
+
+            landCode = debtor.get("Currency")
+            if not landCode:
+                landCode = "DKK"
+
             payload = {
                 "Account": int(debtor.get("Account")),
                 "Layout group": "Flexfone",
                 "LayoutGroup": "Flexfone",
-                "Currency": "DKK" if invoice.customer.countryCode == "DK" else "EUR",
+                "Currency": landCode,
                 "Account Name": debtor.get("Account Name"),
                 "YourRef": "API-ORDER-001",
                 "invoice_date": invoice.period_end
             }
+
             resp =  self._post("Crud/Insert/DebtorOrderClient", json=payload)
             data = resp.json()
             if not resp.ok:
@@ -286,16 +293,15 @@ class UnicontaClient:
         deptor = self.find_deptor_from_invoice(invoice)
         if deptor is None:
             return "Could not find deptor for invoice"
-
         OrderNumber = self.find_orderNumber(deptor, invoice)
         all_lines = []
-
+        currencyCode = deptor.get("Currency", "DKK")
+        if not currencyCode:
+            currencyCode = "DKK"
         for key, category in invoice.categories.items():
             names = lookupDict.get(key)
-
             for catline in category.lines:
-                price = catline.UnitPrice/(1 if invoice.customer.countryCode == "DK" else 7.45)
-                #round(price, 5)
+                price = catline.UnitPrice/(1 if currencyCode == "DKK" else 7.47)
                 if catline.Amount != 0.0:
                     all_lines.append({
                         "OrderNumber": OrderNumber,
@@ -303,14 +309,13 @@ class UnicontaClient:
                         "Dimension1": names.Dimension1,
                         "Dimension2": names.Dimension2,
                         "Dimension3": names.Dimension3,
-                        "Currency": "DKK" if invoice.customer.countryCode == "DK" else "EUR",
+                        "Currency": currencyCode,
                         "ReferenceNumber": "API_TEST",
                         "Price": price,
                         "Note": f"{catline.PeriodStart.strftime("%d-%m-%Y")} - {catline.PeriodEnd.strftime("%d-%m-%Y")}",
                         "Item": names.Item,
                         "Text": str(catline.ItemName),
                         "Qty": catline.Quantity,
-                        #"Total": catline.Amount
                     })
         response = self._post("Crud/InsertList/DebtorOrderLineClientUser", json=all_lines)
         report_success_or_failure(invoice, response.ok)

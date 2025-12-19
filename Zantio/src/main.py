@@ -57,15 +57,20 @@ def main(*args, **kwargs):
     print(" ")
 
     total = 0
-    for key, item in recon_data.billed_invoice_kay.items():
-        print(f"Category: {key:<30} total: {item:>15,.2f}")
-        total += item
+    failedtotal = 0
 
-    for key, item in recon_data.billed_invoice_kay_fail.items():
+    for key, item in recon_data.billed_invoice_kay.items():
         print(f"Category: {key:<30} total: {item:>15,.2f}")
         total += item
     print("-" * 60)
     print(f"Category: {'TOTAL':<30} total: {total:>15,.2f}")
+    print(" ")
+    for key, item in recon_data.billed_invoice_kay_fail.items():
+        print(f"Category: {key:<30} total: {item:>15,.2f}")
+        failedtotal += item
+
+    print("-" * 60)
+    print(f"Category: {'TOTAL FAILED':<30} total: {failedtotal:>15,.2f}")
 
     print(format_str_with_color("Setup StreamletPage...", "blue"))
     setupStreamletPage(foundCatKeyDict)

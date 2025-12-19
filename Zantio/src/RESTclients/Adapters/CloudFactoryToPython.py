@@ -1,4 +1,5 @@
 from datetime import datetime
+from math import copysign
 
 from RESTclients.dataModels import CustomerInvoiceCategoryLineBase
 
@@ -8,9 +9,9 @@ def generate_correct_product_line(catName, record, startDate, endDate):
         start = datetime.strptime(record.get("Start Date", "Failed"), "%d-%m-%y").date()
         end = datetime.strptime(record.get("End Date", "Failed"), "%d-%m-%y").date()
         line = CustomerInvoiceCategoryLineBase(
-            Amount=record.get("Amount", "Failed"),
+            Amount=record.get("Retail Amount", "Failed"),
             Currency=record.get("Currency", "Failed"),
-            ItemName=record.get("Item Name", "Failed"),
+            ItemName=record.get("Item Name", "Exclaimer Failed"),
             ItemNo=record.get("Item No", "Failed"),
             Units="stk",
             CustomerName = record.get("Portal Customer Name"),
@@ -24,7 +25,7 @@ def generate_correct_product_line(catName, record, startDate, endDate):
         line = CustomerInvoiceCategoryLineBase(
             Amount=record.get("Amount", "Failed"),
             Currency=record.get("Currency", "Failed"),
-            ItemName=record.get("Item Name", "Failed"),
+            ItemName=record.get("Item Name", "SPLA Failed"),
             ItemNo=record.get("Item No", "Failed"),
             Units="stk",
             CustomerName=record.get("Portal Customer Name"),
@@ -38,9 +39,9 @@ def generate_correct_product_line(catName, record, startDate, endDate):
         start = datetime.strptime(record.get("Start Date", "Failed"), "%d-%m-%y").date()
         end = datetime.strptime(record.get("End Date", "Failed"), "%d-%m-%y").date()
         line = CustomerInvoiceCategoryLineBase(
-            Amount=record.get("Amount", "Failed"),
+            Amount=record.get("Retail Amount", "Failed"),
             Currency=record.get("Currency", "Failed"),
-            ItemName=record.get("Nickname", "Failed"),
+            ItemName=record.get("Nickname", "CSP Failed"),
             ItemNo=record.get("Item No", "Failed"),
             Units="stk",
             CustomerName=record.get("Portal Customer Name"),
@@ -54,9 +55,9 @@ def generate_correct_product_line(catName, record, startDate, endDate):
         start = datetime.strptime(record.get("Start Date", "Failed"), "%d-%m-%y").date()
         end = datetime.strptime(record.get("End Date", "Failed"), "%d-%m-%y").date()
         line = CustomerInvoiceCategoryLineBase(
-            Amount=record.get("Amount", "Failed"),
+            Amount=record.get("Retail Amount", "Failed"),
             Currency=record.get("Currency", "Failed"),
-            ItemName=record.get("Item Name", "Failed"),
+            ItemName=record.get("Item Name", "Keepit Failed"),
             ItemNo=record.get("Item No", "Failed"),
             Units="stk",
             CustomerName=record.get("Portal Customer Name"),
@@ -70,9 +71,9 @@ def generate_correct_product_line(catName, record, startDate, endDate):
         start = datetime.strptime(record.get("Start Date", "Failed"), "%d-%m-%y").date()
         end = datetime.strptime(record.get("End Date", "Failed"), "%d-%m-%y").date()
         line = CustomerInvoiceCategoryLineBase(
-            Amount=record.get("Amount", "Failed"),
+            Amount=record.get("Retail Amount", "Failed"),
             Currency=record.get("Currency", "Failed"),
-            ItemName=record.get("Item Name", "Failed"),
+            ItemName=record.get("Description", "Acronis Failed"),
             ItemNo=record.get("Item No", "Failed"),
             Units=record.get("Unit", "Failed"),
             CustomerName=record.get("Portal Customer Name"),
@@ -84,9 +85,9 @@ def generate_correct_product_line(catName, record, startDate, endDate):
         )
     elif catName == "Dropbox":
         line = CustomerInvoiceCategoryLineBase(
-            Amount=record.get("Amount", "Failed"),
+            Amount=record.get("Retail Amount", "Failed"),
             Currency=record.get("Currency", "Failed"),
-            ItemName=record.get("Description", "Failed"),
+            ItemName=record.get("Description", "Dropbox Failed"),
             ItemNo=record.get("Item No", "Failed"),
             Units="stk",
             CustomerName=record.get("Portal Customer Name"),
@@ -112,9 +113,9 @@ def generate_correct_product_line(catName, record, startDate, endDate):
         )
     elif catName == "Microsoft NCE (Azure)":
         line = CustomerInvoiceCategoryLineBase(
-            Amount=record.get("Amount", 0.0),
+            Amount=record.get("Retail Amount", 0.0),
             Currency=record.get("Currency", "Failed"),
-            ItemName=record.get("Description", "Failed"),
+            ItemName=record.get("Description", "Azure Failed"),
             ItemNo=record.get("Product Id", "Failed"),
             Units="stk",
             CustomerName=record.get("Portal Customer Name"),
@@ -129,7 +130,7 @@ def generate_correct_product_line(catName, record, startDate, endDate):
         line = CustomerInvoiceCategoryLineBase(
             Amount=float(record.get("Amount", 0.0)),
             Currency=record.get("Currency", "Failed"),
-            ItemName=record.get("Description", "Failed"),
+            ItemName=record.get("Description", "else Failed"),
             ItemNo=record.get("Item No", "Failed"),
             Units="stk",
             CustomerName=record.get("Portal Customer Name"),
@@ -140,14 +141,18 @@ def generate_correct_product_line(catName, record, startDate, endDate):
             PeriodEnd=endDate,
         )
 
-    if abs(line.Quantity) < 1E-6:
-        line.Quantity = 1
+    if abs(round(line.Quantity, 5)) < 0.00001:
+        line.Quantity = copysign(1, line.Quantity)
 
     if line.Currency.upper() != "DKK":
         print(line.Currency)
-
-    line.UnitPrice = round(float(abs(line.Amount)) / float(abs(line.Quantity)), 5)
+    try:
+        line.UnitPrice = round(float(abs(line.Amount)) / float(abs(line.Quantity)), 5)
+    except Exception as e:
+        print(catName)
     #line.Amount = round(line.Amount, 2)
+
+
 
     return line
 
