@@ -1,6 +1,5 @@
 import io
 
-from duckdb.experimental.spark.sql.functions import first
 from openpyxl import load_workbook
 
 def convert_excel_to_dict(excel_bytes):

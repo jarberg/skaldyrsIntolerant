@@ -1,70 +1,78 @@
 # launch_app.py – bruges til at bygge .exe og starte Streamlit
 
 import os
+import sys
+import traceback
+from pathlib import Path
+import webbrowser
 
-# 🔹 Slå Streamlit dev-mode fra, så den ikke bruger Node-dev-server på port 3000
+# Slå Streamlit dev-mode fra
 os.environ["STREAMLIT_GLOBAL_DEVELOPMENT_MODE"] = "false"
 
-import sys
-from pathlib import Path
-import subprocess
-import traceback
-
-# Sørg for at PyInstaller pakker disse moduler med
+# Ensure PyInstaller sees these imports
 import streamlit  # noqa: F401
 import streamlit.web.cli as stcli  # noqa: F401
 
-# Pakker som din app (streamlit_app.py + main.py) bruger
+# Your app dependencies (optional, but fine to keep)
 import pandas  # noqa: F401
 import numpy  # noqa: F401
 import requests  # noqa: F401
 import openpyxl  # noqa: F401
-import dotenv  # noqa: F401  # python-dotenv
+import dotenv  # noqa: F401
 import altair  # noqa: F401
 import duckdb  # noqa: F401
 
 
-def get_base_dir() -> Path:
-    """Find base-mappen, både som .py og som PyInstaller .exe."""
+def get_streamlit_script_path() -> Path:
+    """
+    Return the path to src/streamlit_app.py both in development
+    and when frozen with PyInstaller onefile.
+
+    In onefile mode, PyInstaller extracts data files to sys._MEIPASS.
+    """
     if getattr(sys, "frozen", False):
-        return Path(sys.executable).resolve().parent
+        base = Path(getattr(sys, "_MEIPASS"))  # extraction dir
     else:
-        return Path(__file__).resolve().parent
+        base = Path(__file__).resolve().parent
+
+    return (base / "src" / "streamlit_app.py").resolve()
 
 
 def main():
-    base_dir = get_base_dir()
-    src_dir = base_dir / "src"
-    script_path = src_dir / "streamlit_app.py"
-
-    if not script_path.exists():
-        print(f"Kunne ikke finde Streamlit-scriptet: {script_path}")
-        print("Sørg for at mappen 'src' ligger ved siden af .exe-filen.")
-        input("Tryk Enter for at lukke...")
-        return
-
-    # Klassisk Streamlit-port når dev-mode er slået fra
     port = 8501
+    script_path = get_streamlit_script_path()
 
     print(f"Starter Streamlit fra: {script_path}")
     print(f"Forventet URL: http://localhost:{port}\n")
 
-    try:
-        if getattr(sys, "frozen", False):
-            # Kører som .exe → brug Streamlit CLI direkte
-            sys.argv = ["streamlit", "run", str(script_path)]
-            stcli.main()
-        else:
-            # Normal Python (til udvikling)
-            cmd = [
-                sys.executable,
-                "-m",
-                "streamlit",
-                "run",
-                str(script_path),
-            ]
-            subprocess.run(cmd, cwd=str(src_dir))
+    if not script_path.exists():
+        print("Kunne ikke finde Streamlit-scriptet i pakken.")
+        print("Sørg for at du har bundlet 'src' som --add-data (se kommandoen nedenfor).")
+        input("Tryk Enter for at lukke...")
+        return
 
+    try:
+        # Build argv exactly like "streamlit run <script>"
+        sys.argv = [
+            "streamlit",
+            "run",
+            str(script_path),
+            "--server.port",
+            str(port),
+            "--server.headless",
+            "true",
+            "--browser.gatherUsageStats",
+            "false",
+        ]
+
+        # Open browser explicitly (Streamlit sometimes won’t in packaged apps)
+        webbrowser.open(f"http://localhost:{port}")
+
+        stcli.main()
+
+    except SystemExit:
+        # Streamlit CLI can raise SystemExit; treat as normal shutdown
+        pass
     except Exception:
         print("\n================= FEJL I STREAMLIT-APPEN =================")
         traceback.print_exc()
